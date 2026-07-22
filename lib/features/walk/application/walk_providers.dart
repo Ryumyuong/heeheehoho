@@ -166,6 +166,13 @@ class WalkController extends Notifier<WalkState> {
   /// 속도 표시가 툭툭 끊기지 않도록, 마지막으로 움직인 시각을 들고 있는다.
   DateTime? _lastMoveAt;
 
+  /// 마지막으로 거리를 인정한 시점의 걸음 수. GPS 이동과 걸음 증가를 함께 봐서
+  /// 제자리 흔들기·좌표 튐으로 거리가 늘어나는 걸 막는다.
+  int _stepsAtLastMove = 0;
+
+  /// 거리를 인정하려면 직전 인정 시점보다 최소 이만큼 걸음이 늘어야 한다.
+  static const int _minStepsPerMove = 4;
+
   // ── 개발용 시뮬레이션 ──
   // GPS를 못 쓰는 환경(크롬·에뮬레이터)에서 화면을 확인하려고 남겨둔 경로.
   // 화면을 탭할 때마다 걷기 → 뛰기 → 더 빨리 뛰기로 순환한다. 실기기에서는 안 쓴다.
@@ -210,6 +217,7 @@ class WalkController extends Notifier<WalkState> {
     final startedAt = state.session.startedAt ?? now;
     _speedLevel = 0;
     _lastMoveAt = now;
+    _stepsAtLastMove = 0; // 새 산책이면 걸음 기준점도 초기화
     state = state.copyWith(
       phase: WalkPhase.walking,
       run: WalkRun.running,
@@ -253,10 +261,18 @@ class WalkController extends Notifier<WalkState> {
   }
 
   /// GPS가 이동을 알려올 때마다 거리를 더한다.
+  ///
+  /// 걸음 센서가 있으면 **걸음도 함께 늘었을 때만** 거리를 인정한다.
+  /// 제자리에서 폰만 흔들거나 GPS 좌표가 튈 때 거리가 늘어나는 걸 막는다.
   void _onMoved(WalkStep step) {
     if (!state.running) return;
-    _lastMoveAt = DateTime.now();
     final s = state.session;
+    final steps = s.measuredSteps;
+    if (steps != null) {
+      if (steps - _stepsAtLastMove < _minStepsPerMove) return;
+      _stepsAtLastMove = steps;
+    }
+    _lastMoveAt = DateTime.now();
     final meters = s.meters + step.meters;
     state = state.copyWith(
       session: s.copyWith(
@@ -299,7 +315,8 @@ class WalkController extends Notifier<WalkState> {
     }
 
     // 한동안 이동 신호가 없으면 멈춘 것으로 보고 애니메이션을 세운다.
-    final idle = now.difference(_lastMoveAt ?? now).inSeconds >= 6;
+    // 멈춘 걸 알아채는 시간(짧을수록 강아지·배경이 빨리 선다).
+    final idle = now.difference(_lastMoveAt ?? now).inSeconds >= 3;
     state = state.copyWith(
       session: s.copyWith(
         seconds: seconds,

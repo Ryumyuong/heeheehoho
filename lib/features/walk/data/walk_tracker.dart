@@ -28,11 +28,12 @@ class WalkTracker {
   StreamSubscription<Position>? _sub;
   Position? _last;
 
-  /// 이 값보다 오차가 큰 위치는 버린다(m). 도심·창가에서도 잡히도록 넉넉히.
-  static const double _maxAccuracy = 50;
+  /// 이 값보다 오차가 큰 위치는 버린다(m). 너무 크면 제자리에서도 좌표가 튄다.
+  static const double _maxAccuracy = 35;
 
   /// 이 거리보다 짧은 이동은 GPS 흔들림으로 본다(m).
-  static const double _minMove = 3;
+  /// 제자리에 서 있을 때 좌표가 흔들려 거리가 늘지 않도록 넉넉히 잡는다.
+  static const double _minMove = 6;
 
   /// 사람이 낼 수 없는 속도(m/s). 이보다 빠른 점프는 튄 좌표로 본다.
   static const double _maxSpeed = 8;
@@ -89,8 +90,8 @@ class WalkTracker {
 
   LocationSettings _settings() {
     // distanceFilter: 이만큼 움직여야 이벤트가 온다. 배터리도 아끼고
-    // 제자리 흔들림도 어느 정도 걸러진다.
-    const filter = 5;
+    // 제자리 흔들림도 어느 정도 걸러진다. 너무 크면 달리기·정지 반응이 늦어진다.
+    const filter = 4;
     if (kIsWeb) {
       return const LocationSettings(
         accuracy: LocationAccuracy.high,

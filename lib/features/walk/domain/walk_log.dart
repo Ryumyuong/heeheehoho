@@ -35,7 +35,8 @@ class WalkMath {
   static const double referenceSpeed = 1.4;
 
   /// 이 배속부터 "달리기"로 본다. 그보다 느리면 홈과 같은 걷기 모션을 쓴다.
-  static const double runThreshold = 1.2;
+  /// (낮출수록 덜 빨라도 강아지가 뛴다)
+  static const double runThreshold = 1.0;
 
   /// 평균 보폭(m). 걸음 센서가 없을 때 GPS 거리에서 걸음 수를 어림잡는 용도.
   static const double metersPerStep = 0.72;
@@ -78,13 +79,20 @@ class WalkSession {
   /// 지금 이동 속도(m/s). 화면 배속([pace])의 근거.
   final double metersPerSecond;
 
-  double get km => meters / 1000;
-
   /// 거리에서 어림잡은 걸음 수(실측 아님).
   int get estimatedSteps => WalkMath.estimatedSteps(meters);
 
   /// 이번 산책의 걸음 수. 센서 값이 있으면 그걸 쓰고, 없으면 거리에서 어림잡는다.
   int get steps => measuredSteps ?? estimatedSteps;
+
+  /// 화면·기록에 쓰는 거리(m).
+  ///
+  /// 걸음 수로 부풀리지 않고 **GPS 실측 거리만** 쓴다. 제자리에서 폰을 흔들면
+  /// 걸음 센서는 올라가지만 실제로 이동한 게 아니므로 거리는 늘면 안 된다.
+  /// (거리를 인정하는 조건은 WalkController 에서 걸음 증가와 함께 검사한다)
+  double get effectiveMeters => meters;
+
+  double get km => meters / 1000;
 
   /// 강아지·배경·먼지가 공유하는 배속. 1.0이 보통 걷기.
   double get pace => WalkMath.paceFactor(metersPerSecond);
@@ -185,7 +193,7 @@ class WalkLog {
       day: base.day,
       weekStart: base.weekStart,
       todaySteps: base.todaySteps + session.steps,
-      todayMeters: base.todayMeters + session.meters,
+      todayMeters: base.todayMeters + session.effectiveMeters,
       todaySeconds: base.todaySeconds + session.seconds,
       todayPaws: base.todayPaws + paws,
       weekdays: {...base.weekdays, at.weekday},

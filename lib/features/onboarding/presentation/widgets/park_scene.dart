@@ -39,15 +39,13 @@ class ParkScene extends StatelessWidget {
     );
 
     if (!expand) return image;
-    // 남는 세로 공간을 그림으로 채운다. 투명 배경(하늘)이라 그림이 커져도 위쪽은
-    // 페이지색으로 이어지고, 사람·강아지·잔디가 커지며 빈 공간을 메운다.
-    // cover: 세로가 길면 그림을 키워 채우되, 좌우가 넘치면 가장자리만 살짝 잘린다.
+    // 남는 세로 공간에서는 그림을 **하단에 붙이고 좌우는 절대 자르지 않는다**.
+    // (contain 이라 폭에 맞춰 전체가 보이고, 위쪽 빈 곳은 투명이라 페이지색이
+    //  그대로 이어져 빈 박스처럼 보이지 않는다)
     return SizedBox.expand(
-      child: Image.asset(
-        'assets/images/walk_scene.png',
-        fit: BoxFit.cover,
+      child: Align(
         alignment: Alignment.bottomCenter,
-        filterQuality: FilterQuality.none,
+        child: image,
       ),
     );
   }
