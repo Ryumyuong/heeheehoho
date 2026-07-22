@@ -41,8 +41,12 @@ class CustomizePage extends ConsumerWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            '나만의 네발 친구를 자유롭게 꾸며보세요',
-                            style: AppText.body(size: 14, color: const Color(0xFF888888)),
+                            draft.fromPhoto
+                                ? '사진에서 찾은 특징을 미리 골라뒀어요. 마음대로 바꿔도 좋아요'
+                                : '나만의 네발 친구를 자유롭게 꾸며보세요',
+                            textAlign: TextAlign.center,
+                            style: AppText.body(
+                                size: 14, color: const Color(0xFF888888)),
                           ),
                           const SizedBox(height: 18),
                           const DraftDogAvatar(size: 150),

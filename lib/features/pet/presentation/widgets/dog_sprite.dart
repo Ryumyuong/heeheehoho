@@ -13,9 +13,17 @@ class DogFrames {
     'assets/images/dog.png',
   ];
 
-  /// 걸을 때 (walk) 프레임. 현재는 idle과 동일(추후 교체).
+  /// 걸을 때 (walk) 프레임. 앞다리/뒷다리 위치가 다른 2장을 번갈아 재생.
   static const List<String> walk = [
-    'assets/images/dog.png',
+    'assets/images/dog_walk_1.png',
+    'assets/images/dog_walk_2.png',
+  ];
+
+  /// 산책 화면에서 달릴 때 (run) 프레임.
+  /// 두 장 모두 발이 캔버스 아래에 맞춰 정렬돼 있어 재생 중 위아래로 튀지 않는다.
+  static const List<String> run = [
+    'assets/images/dog_run_1.png',
+    'assets/images/dog_run_2.png',
   ];
 }
 

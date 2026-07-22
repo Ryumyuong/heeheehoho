@@ -49,6 +49,7 @@ class FilledPillButton extends StatelessWidget {
               ],
               Text(
                 label,
+                textAlign: TextAlign.center,
                 style: AppText.body(
                   size: 16,
                   color: textColor,
@@ -118,12 +119,20 @@ class OutlinedPillButton extends StatelessWidget {
                   Icon(icon, color: textColor, size: 20),
                   const SizedBox(width: 8),
                 ],
-                Text(
-                  label,
-                  style: AppText.body(
-                    size: 16,
-                    color: textColor,
-                    weight: fontWeight,
+                // 좁은 화면(접은 폰 등)에서 긴 글자가 버튼을 넘지 않게 한 줄로 축소.
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      style: AppText.body(
+                        size: 16,
+                        color: textColor,
+                        weight: fontWeight,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -169,6 +178,7 @@ class SelectChip extends StatelessWidget {
         ),
         child: Text(
           label,
+          textAlign: TextAlign.center,
           style: AppText.body(
             size: 14,
             color: selected ? const Color(0xFFFC9340) : AppColors.ink,
@@ -222,6 +232,7 @@ class SocialButton extends StatelessWidget {
               ),
               Text(
                 label,
+                textAlign: TextAlign.center,
                 style: AppText.body(
                   size: 13.63,
                   color: textColor,

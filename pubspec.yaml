@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 1.0.6+7
 
 environment:
   sdk: ^3.9.2
@@ -39,12 +39,31 @@ dependencies:
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   image_picker: ^1.1.2
+  geolocator: ^14.0.2
+  geocoding: ^4.0.0
+  http: ^1.6.0
+  pedometer: ^4.2.0
+  permission_handler: ^12.0.3
+  in_app_purchase: ^3.2.3
+  upgrader: ^13.5.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   integration_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.14.1
+
+# 앱 아이콘 생성: `dart run flutter_launcher_icons`
+# 어댑티브 아이콘은 원형/둥근사각 마스크에 잘리므로, 전경은 내용이 66%로 축소된
+# app_icon_foreground.png를 쓰고 배경은 아이콘의 오렌지로 채운다.
+flutter_launcher_icons:
+  image_path: "assets/branding/app_icon.png"
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  adaptive_icon_background: "#F58A3C"
+  adaptive_icon_foreground: "assets/branding/app_icon_foreground.png"
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -68,6 +87,9 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/items/
+    - assets/icons/
+    - assets/market/
 
   fonts:
     - family: LanaPixel
@@ -76,6 +98,9 @@ flutter:
     - family: NotoSansKR
       fonts:
         - asset: assets/fonts/NotoSansKR.ttf
+    - family: Pretendard
+      fonts:
+        - asset: assets/fonts/Pretendard.ttf
     - family: Pacifico
       fonts:
         - asset: assets/fonts/Pacifico-Regular.ttf

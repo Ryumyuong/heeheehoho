@@ -7,6 +7,7 @@ class PetRepository {
 
   final Box _box;
   static const _key = 'pet';
+  static const _guestKey = 'is_guest';
 
   static Future<PetRepository> open() async {
     final box = await Hive.openBox('pet_box');
@@ -24,4 +25,9 @@ class PetRepository {
   }
 
   Future<void> clear() async => _box.delete(_key);
+
+  /// 현재 세션이 비회원인지. (구매 등 로그인 필요 동작의 가드에 사용)
+  bool loadIsGuest() => _box.get(_guestKey, defaultValue: false) as bool;
+
+  Future<void> saveIsGuest(bool value) async => _box.put(_guestKey, value);
 }

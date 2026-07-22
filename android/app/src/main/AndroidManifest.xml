@@ -1,6 +1,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- 산책 거리 측정(GPS) + 현재 지역·날씨 조회 -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <!-- 화면이 꺼진 동안에도 거리를 이어서 재기 위한 포그라운드 서비스.
+         (알림을 띄운 채로 받아야 OS가 위치 갱신을 끊지 않는다) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <!-- 걸음 수 실측(OS 걸음 센서) -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
+    <!-- 산책 중 "산책 기록 중" 알림 표시(Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
-        android:label="pixel_pet"
+        android:label="heeheehoho"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

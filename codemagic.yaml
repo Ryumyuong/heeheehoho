@@ -1,0 +1,64 @@
+# Codemagic CI — Mac 없이 iOS 빌드/배포용 설정.
+#
+# 준비물(Codemagic 웹에서 한 번만):
+#  1) 이 GitHub 저장소 연결
+#  2) Teams → Integrations → App Store Connect 에 API 키 등록(이름: 아래 auth 참조)
+#  3) Environment variables 그룹 `heeheehoho_secrets` 에 KMA_API_KEY 추가(Secure 체크)
+#     - 값은 로컬 env.json 의 KMA_API_KEY 와 동일(공공데이터포털 "디코딩된" 키)
+#  4) App Store Connect 에 번들 ID `com.heeheehoho.app` 앱 생성
+workflows:
+  ios-release:
+    name: heeheehoho iOS (TestFlight)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      groups:
+        # KMA_API_KEY 가 들어 있는 환경변수 그룹
+        - heeheehoho_secrets
+      ios_signing:
+        # Codemagic 이 인증서·프로비저닝을 자동 관리(App Store 배포용)
+        distribution_type: app_store
+        bundle_identifier: com.heeheehoho.app
+    scripts:
+      - name: Flutter 패키지 설치
+        script: flutter pub get
+
+      - name: CocoaPods 설치
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+
+      - name: 빌드 번호를 TestFlight 최신 +1 로
+        script: |
+          # 같은 빌드 번호는 업로드가 거부되므로 자동 증가시킨다.
+          BUILD_NUMBER=$(app-store-connect get-latest-testflight-build-number \
+            "$APP_STORE_APPLE_ID" --increment 2>/dev/null || echo "1")
+          echo "BUILD_NUMBER=$BUILD_NUMBER"
+          echo "FLUTTER_BUILD_NUMBER=$BUILD_NUMBER" >> $CM_ENV
+
+      - name: iOS 빌드(IPA)
+        script: |
+          flutter build ipa --release \
+            --dart-define=KMA_API_KEY="$KMA_API_KEY" \
+            --build-number="${FLUTTER_BUILD_NUMBER:-1}" \
+            --export-options-plist=/Users/builder/export_options.plist
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+
+    publishing:
+      app_store_connect:
+        # Codemagic 에 등록한 App Store Connect 통합을 사용
+        auth: integration
+        # 빌드 후 TestFlight 내부 테스터에게 자동 배포
+        submit_to_testflight: true
+      email:
+        recipients:
+          - ehsrkdl96@gmail.com
+        notify:
+          success: true
+          failure: true

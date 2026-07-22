@@ -43,3 +43,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# 릴리즈 서명 키 (절대 커밋 금지)
+android/key.properties
+*.jks
+*.keystore
+
+# API 키 (--dart-define-from-file=env.json 으로 주입)
+env.json

@@ -8,20 +8,24 @@ class StatCard extends StatelessWidget {
     required this.happiness,
     required this.hunger,
     required this.fatigue,
+    this.width = 215,
   });
 
   final int happiness;
   final int hunger;
   final int fatigue;
 
+  /// 카드(게이지 포함) 폭. 좁은 화면에서 오른쪽 버튼과 겹치지 않게 줄여 넘긴다.
+  final double width;
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 180,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      width: width,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(5),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
@@ -32,11 +36,11 @@ class StatCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _StatRow(emoji: '❤️', label: '행복도', value: happiness, color: AppColors.statHappy),
+          _StatRow(icon: 'assets/icons/stat_happy.png', label: '행복도', value: happiness, color: AppColors.statHappy),
           const SizedBox(height: 8),
-          _StatRow(emoji: '🦴', label: '배고픔', value: hunger, color: AppColors.statHunger),
+          _StatRow(icon: 'assets/icons/stat_hunger.png', label: '배고픔', value: hunger, color: AppColors.statHunger),
           const SizedBox(height: 8),
-          _StatRow(emoji: '⚡', label: '피로도', value: fatigue, color: AppColors.statFatigue),
+          _StatRow(icon: 'assets/icons/stat_fatigue.png', label: '피로도', value: fatigue, color: AppColors.statFatigue),
         ],
       ),
     );
@@ -45,12 +49,12 @@ class StatCard extends StatelessWidget {
 
 class _StatRow extends StatelessWidget {
   const _StatRow({
-    required this.emoji,
+    required this.icon,
     required this.label,
     required this.value,
     required this.color,
   });
-  final String emoji;
+  final String icon;
   final String label;
   final int value;
   final Color color;
@@ -59,7 +63,8 @@ class _StatRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Text(emoji, style: const TextStyle(fontSize: 11)),
+        Image.asset(icon,
+            width: 14, height: 14, filterQuality: FilterQuality.none),
         const SizedBox(width: 4),
         SizedBox(
           width: 38,
@@ -68,7 +73,7 @@ class _StatRow extends StatelessWidget {
         ),
         Expanded(
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(3),
             child: TweenAnimationBuilder<double>(
               tween: Tween(begin: 0, end: (value / 100).clamp(0, 1)),
               duration: const Duration(milliseconds: 400),
@@ -76,7 +81,8 @@ class _StatRow extends StatelessWidget {
               builder: (context, t, _) => LinearProgressIndicator(
                 value: t,
                 minHeight: 7,
-                backgroundColor: AppColors.line,
+                borderRadius: BorderRadius.circular(3),
+                backgroundColor: AppColors.statTrack,
                 valueColor: AlwaysStoppedAnimation(color),
               ),
             ),

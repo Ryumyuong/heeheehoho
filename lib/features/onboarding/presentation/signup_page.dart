@@ -65,7 +65,10 @@ class SignupPage extends ConsumerWidget {
                 background: Colors.white,
                 textColor: AppColors.ink,
                 badge: _circleText('G', const Color(0xFF4285F4)),
-                onPressed: () => context.go('/home'),
+                onPressed: () {
+                  ref.read(isGuestProvider.notifier).setGuest(false);
+                  context.go('/home');
+                },
               ),
               const SizedBox(height: 12),
               SocialButton(
@@ -73,7 +76,10 @@ class SignupPage extends ConsumerWidget {
                 background: AppColors.kakao,
                 textColor: AppColors.kakaoText,
                 badge: _circleText('K', AppColors.kakaoText),
-                onPressed: () => context.go('/home'),
+                onPressed: () {
+                  ref.read(isGuestProvider.notifier).setGuest(false);
+                  context.go('/home');
+                },
               ),
               const SizedBox(height: 12),
               SocialButton(
@@ -81,7 +87,10 @@ class SignupPage extends ConsumerWidget {
                 background: AppColors.naver,
                 textColor: Colors.white,
                 badge: _circleText('N', Colors.white, bg: Colors.transparent),
-                onPressed: () => context.go('/home'),
+                onPressed: () {
+                  ref.read(isGuestProvider.notifier).setGuest(false);
+                  context.go('/home');
+                },
               ),
               const SizedBox(height: 16),
               TextButton(

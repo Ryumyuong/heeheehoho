@@ -62,11 +62,15 @@ class Pet {
     required this.eyeStyle,
     required this.noseStyle,
     required this.mouthStyle,
-    this.points = 1250,
+    this.paws = 0,
+    this.bones = 0,
     this.happiness = 70, // 행복도
     this.hunger = 60, // 배고픔(포만도)
     this.fatigue = 40, // 피로도
     this.equippedItems = const [],
+    this.placements = const {},
+    this.placementScales = const {},
+    this.ownedItems = const [],
   });
 
   final String name;
@@ -77,7 +81,13 @@ class Pet {
   final EyeStyle eyeStyle;
   final NoseStyle noseStyle;
   final MouthStyle mouthStyle;
-  final int points;
+
+  /// 발자국: 미니룸 아이템(가구·코스튬)을 사는 데 쓰는 화폐. 돌보기로 모은다.
+  final int paws;
+
+  /// 뼈다귀: 마켓에서 실제 물품을 사는 데 쓰는 화폐.
+  final int bones;
+
   final int happiness;
   final int hunger;
   final int fatigue;
@@ -85,15 +95,28 @@ class Pet {
   /// 장착/배치된 아이템 id 목록.
   final List<String> equippedItems;
 
+  /// 배치된 가구의 정규화 좌표(0~1) : id -> 화면 비율 위치.
+  final Map<String, Offset> placements;
+
+  /// 배치된 가구의 크기 배율 : id -> scale(기본 1.0). 없으면 1.0으로 처리.
+  final Map<String, double> placementScales;
+
+  /// 스토어에서 구매해 보유한 아이템 id 목록. 홈 아이템창의 잠금 해제 기준.
+  final List<String> ownedItems;
+
   Color get furColor => Color(furColorValue);
 
   Pet copyWith({
     String? name,
-    int? points,
+    int? paws,
+    int? bones,
     int? happiness,
     int? hunger,
     int? fatigue,
     List<String>? equippedItems,
+    Map<String, Offset>? placements,
+    Map<String, double>? placementScales,
+    List<String>? ownedItems,
   }) =>
       Pet(
         name: name ?? this.name,
@@ -104,11 +127,15 @@ class Pet {
         eyeStyle: eyeStyle,
         noseStyle: noseStyle,
         mouthStyle: mouthStyle,
-        points: points ?? this.points,
+        paws: paws ?? this.paws,
+        bones: bones ?? this.bones,
         happiness: (happiness ?? this.happiness).clamp(0, 100),
         hunger: (hunger ?? this.hunger).clamp(0, 100),
         fatigue: (fatigue ?? this.fatigue).clamp(0, 100),
         equippedItems: equippedItems ?? this.equippedItems,
+        placements: placements ?? this.placements,
+        placementScales: placementScales ?? this.placementScales,
+        ownedItems: ownedItems ?? this.ownedItems,
       );
 
   Map<String, dynamic> toMap() => {
@@ -120,34 +147,78 @@ class Pet {
         'eyeStyle': eyeStyle.index,
         'noseStyle': noseStyle.index,
         'mouthStyle': mouthStyle.index,
-        'points': points,
+        'paws': paws,
+        'bones': bones,
         'happiness': happiness,
         'hunger': hunger,
         'fatigue': fatigue,
         'equippedItems': equippedItems,
+        'placements':
+            placements.map((k, v) => MapEntry(k, [v.dx, v.dy])),
+        'placementScales': placementScales,
+        'ownedItems': ownedItems,
       };
 
-  factory Pet.fromMap(Map<dynamic, dynamic> m) => Pet(
-        name: m['name'] as String? ?? '몽치',
-        gender: Gender.values[(m['gender'] as num?)?.toInt() ?? 0],
-        birthday: DateTime.fromMillisecondsSinceEpoch(
-          (m['birthday'] as num?)?.toInt() ??
-              DateTime.now().millisecondsSinceEpoch,
-        ),
-        bodyShape: BodyShape.values[(m['bodyShape'] as num?)?.toInt() ?? 0],
-        furColorValue: (m['furColorValue'] as num?)?.toInt() ??
-            AppColors.furColors[0].toARGB32(),
-        eyeStyle: EyeStyle.values[(m['eyeStyle'] as num?)?.toInt() ?? 0],
-        noseStyle: NoseStyle.values[(m['noseStyle'] as num?)?.toInt() ?? 0],
-        mouthStyle: MouthStyle.values[(m['mouthStyle'] as num?)?.toInt() ?? 0],
-        points: (m['points'] as num?)?.toInt() ?? 1250,
-        happiness: (m['happiness'] as num?)?.toInt() ?? 70,
-        hunger: (m['hunger'] as num?)?.toInt() ?? 60,
-        fatigue: (m['fatigue'] as num?)?.toInt() ?? 40,
-        equippedItems:
-            (m['equippedItems'] as List?)?.map((e) => e.toString()).toList() ??
-                const [],
-      );
+  factory Pet.fromMap(Map<dynamic, dynamic> m) {
+    final equipped =
+        (m['equippedItems'] as List?)?.map((e) => e.toString()).toList() ??
+            const <String>[];
+    final placements = _placementsFromMap(m['placements']);
+    // ownedItems가 없는 구버전 저장본은 이미 쓰던 아이템을 보유로 이관.
+    final owned = m.containsKey('ownedItems')
+        ? ((m['ownedItems'] as List?)?.map((e) => e.toString()).toList() ??
+            const <String>[])
+        : {...equipped, ...placements.keys}.toList();
+    return Pet(
+      name: m['name'] as String? ?? '몽치',
+      gender: Gender.values[(m['gender'] as num?)?.toInt() ?? 0],
+      birthday: DateTime.fromMillisecondsSinceEpoch(
+        (m['birthday'] as num?)?.toInt() ??
+            DateTime.now().millisecondsSinceEpoch,
+      ),
+      bodyShape: BodyShape.values[(m['bodyShape'] as num?)?.toInt() ?? 0],
+      furColorValue: (m['furColorValue'] as num?)?.toInt() ??
+          AppColors.furColors[0].toARGB32(),
+      eyeStyle: EyeStyle.values[(m['eyeStyle'] as num?)?.toInt() ?? 0],
+      noseStyle: NoseStyle.values[(m['noseStyle'] as num?)?.toInt() ?? 0],
+      mouthStyle: MouthStyle.values[(m['mouthStyle'] as num?)?.toInt() ?? 0],
+      // 'points'는 발자국·뼈다귀로 나뉘기 전의 옛 키. 구버전 저장본은 발자국으로 이관.
+      paws: (m['paws'] as num?)?.toInt() ??
+          (m['points'] as num?)?.toInt() ??
+          0,
+      bones: (m['bones'] as num?)?.toInt() ?? 0,
+      happiness: (m['happiness'] as num?)?.toInt() ?? 70,
+      hunger: (m['hunger'] as num?)?.toInt() ?? 60,
+      fatigue: (m['fatigue'] as num?)?.toInt() ?? 40,
+      equippedItems: equipped,
+      placements: placements,
+      placementScales: _scalesFromMap(m['placementScales']),
+      ownedItems: owned,
+    );
+  }
+
+  static Map<String, Offset> _placementsFromMap(dynamic raw) {
+    if (raw is! Map) return const {};
+    final out = <String, Offset>{};
+    raw.forEach((k, v) {
+      if (v is List && v.length >= 2) {
+        out[k.toString()] = Offset(
+          (v[0] as num).toDouble(),
+          (v[1] as num).toDouble(),
+        );
+      }
+    });
+    return out;
+  }
+
+  static Map<String, double> _scalesFromMap(dynamic raw) {
+    if (raw is! Map) return const {};
+    final out = <String, double>{};
+    raw.forEach((k, v) {
+      if (v is num) out[k.toString()] = v.toDouble();
+    });
+    return out;
+  }
 }
 
 /// 온보딩 동안 단계별로 채워지는 가변 초안.
@@ -155,6 +226,7 @@ class PetDraft {
   PetDraft({
     this.hasExistingPet,
     this.photoPath,
+    this.fromPhoto = false,
     this.bodyShape = BodyShape.round,
     this.furColorValue,
     this.eyeStyle = EyeStyle.round,
@@ -167,6 +239,11 @@ class PetDraft {
 
   bool? hasExistingPet;
   String? photoPath;
+
+  /// 아래 외형 값들이 사진 분석으로 미리 채워졌는지. 커스터마이즈 화면에서
+  /// "사진에서 찾은 특징" 안내를 띄울지 판단하는 데만 쓴다.
+  bool fromPhoto;
+
   BodyShape bodyShape;
   int? furColorValue;
   EyeStyle eyeStyle;
@@ -179,6 +256,7 @@ class PetDraft {
   PetDraft copy() => PetDraft(
         hasExistingPet: hasExistingPet,
         photoPath: photoPath,
+        fromPhoto: fromPhoto,
         bodyShape: bodyShape,
         furColorValue: furColorValue,
         eyeStyle: eyeStyle,

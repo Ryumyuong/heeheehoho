@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  static const Color splashOrange = Color(0xFFEE8E43); // 스플래시 배경
-  static const Color primary = Color(0xFFF2994A); // 메인 오렌지(버튼/활성탭)
+  static const Color splashOrange = Color(0xFFFC9340); // 스플래시 배경
+  static const Color primary = Color(0xFFFC9340); // 메인 오렌지(버튼/활성탭)
   static const Color primarySoft = Color(0xFFFAD9B8); // 연한 오렌지 테두리
   static const Color coral = Color(0xFFF47B56); // 로고/강조 텍스트
   static const Color cream = Color(0xFFF4EAD6); // 기본 배경
@@ -16,9 +16,10 @@ class AppColors {
   static const Color brownIcon = Color(0xFF9C6B43); // 가구/나무 톤
 
   // 스탯 바 색
-  static const Color statHappy = Color(0xFFF47B56); // 행복도
-  static const Color statHunger = Color(0xFFF2994A); // 배고픔
-  static const Color statFatigue = Color(0xFF8C7AE6); // 피로도
+  static const Color statHappy = Color(0xFFF4845F); // 행복도
+  static const Color statHunger = Color(0xFFFFD166); // 배고픔
+  static const Color statFatigue = Color(0xFF7E6DFF); // 피로도
+  static const Color statTrack = Color(0xFFD9D9D9); // 게이지 안채워진 곳
 
   // 소셜 로그인
   static const Color kakao = Color(0xFFFEE500);
@@ -57,19 +58,20 @@ class AppText {
         letterSpacing: 0.5,
       );
 
-  /// 본문 (Noto Sans KR, 번들 폰트).
+  /// 본문 (기본 Noto Sans KR). [family]로 다른 가변 폰트(예: Pretendard) 지정 가능.
   static TextStyle body({
     double size = 14,
     Color color = AppColors.ink,
     FontWeight weight = FontWeight.w400,
     double height = 1.4,
+    String family = 'NotoSansKR',
   }) =>
       TextStyle(
-        fontFamily: 'NotoSansKR',
+        fontFamily: family,
         fontSize: size,
         color: color,
         fontWeight: weight,
-        // NotoSansKR은 가변 폰트(wght 100~900, 기본 100/Thin)라
+        // NotoSansKR·Pretendard 모두 가변 폰트(wght 축)라
         // fontWeight만으로는 웹에서 굵기가 반영되지 않아 가변 축을 명시한다.
         fontVariations: [FontVariation('wght', weight.value.toDouble())],
         height: height,
@@ -103,6 +105,11 @@ class PixelTheme {
           ),
       splashFactory: NoSplash.splashFactory,
       highlightColor: Colors.transparent,
+      scrollbarTheme: ScrollbarThemeData(
+        thumbColor: const WidgetStatePropertyAll(Color(0xFFFC9340)),
+        radius: const Radius.circular(8),
+        thickness: const WidgetStatePropertyAll(4),
+      ),
     );
   }
 }

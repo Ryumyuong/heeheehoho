@@ -73,11 +73,8 @@ class _InfoPageState extends ConsumerState<InfoPage> {
     });
     await ctrl.complete();
     if (!mounted) return;
-    if (ctrl.isGuest) {
-      context.push('/signup');
-    } else {
-      context.go('/home');
-    }
+    // 비회원도 회원가입 없이 바로 앱으로 진입.
+    context.go('/home');
   }
 
   @override
