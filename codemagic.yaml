@@ -11,6 +11,10 @@ workflows:
     name: heeheehoho iOS (TestFlight)
     instance_type: mac_mini_m2
     max_build_duration: 60
+    integrations:
+      # Codemagic → Teams → Integrations → App Store Connect 에 등록한
+      # **API 키 이름**과 정확히 같아야 한다(아래는 예시 이름).
+      app_store_connect: heeheehoho_asc
     environment:
       flutter: stable
       xcode: latest
@@ -18,10 +22,6 @@ workflows:
       groups:
         # KMA_API_KEY 가 들어 있는 환경변수 그룹
         - heeheehoho_secrets
-      integrations:
-        # Codemagic → Teams → Integrations → App Store Connect 에 등록한
-        # **API 키 이름**과 정확히 같아야 한다(아래는 예시 이름).
-        app_store_connect: heeheehoho_asc
       ios_signing:
         # Codemagic 이 인증서·프로비저닝을 자동 관리(App Store 배포용)
         distribution_type: app_store
