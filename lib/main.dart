@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +10,7 @@ import 'package:upgrader/upgrader.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/pixel_theme.dart';
+import 'features/onboarding/data/nickname_service.dart';
 import 'features/pet/application/pet_providers.dart';
 import 'features/pet/data/pet_repository.dart';
 import 'features/walk/application/walk_providers.dart';
@@ -20,6 +23,17 @@ Future<void> main() async {
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
   ]);
+
+  // Firebase(닉네임 중복 검사용). 설정이 없거나 실패하면 null로 두고 검사를
+  // 건너뛴다(온보딩이 막히지 않게). 설정 파일이 들어오면 자동으로 켜진다.
+  FirebaseFirestore? firestore;
+  try {
+    await Firebase.initializeApp();
+    firestore = FirebaseFirestore.instance;
+  } catch (_) {
+    firestore = null;
+  }
+
   await Hive.initFlutter();
   final petRepo = await PetRepository.open();
   final walkRepo = await WalkRepository.open();
@@ -29,6 +43,7 @@ Future<void> main() async {
       overrides: [
         petRepositoryProvider.overrideWithValue(petRepo),
         walkRepositoryProvider.overrideWithValue(walkRepo),
+        firestoreProvider.overrideWithValue(firestore),
       ],
       child: const HeeheehohoApp(),
     ),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +8,7 @@ import '../../../core/theme/pixel_theme.dart';
 import '../../../shared/widgets/app_buttons.dart';
 import '../../pet/application/pet_providers.dart';
 import '../../pet/domain/pet.dart';
+import '../data/nickname_service.dart';
 import 'widgets/back_step_bar.dart';
 import 'widgets/dog_avatar.dart';
 
@@ -22,6 +25,12 @@ class _InfoPageState extends ConsumerState<InfoPage> {
   DateTime? _birthday;
   bool _today = false;
 
+  // 이름 중복/형식 검사 상태.
+  Timer? _checkDebounce;
+  String? _nameError; // 보여줄 오류(중복·형식). 없으면 null.
+  bool _checking = false; // 서버 확인 중
+  bool _nameOk = false; // 형식·중복 모두 통과
+
   @override
   void initState() {
     super.initState();
@@ -29,20 +38,70 @@ class _InfoPageState extends ConsumerState<InfoPage> {
     _nameCtrl.text = d.name;
     _gender = d.gender;
     _birthday = d.birthday;
-    _nameCtrl.addListener(() => setState(() {}));
+    _nameCtrl.addListener(_onNameChanged);
+    if (_nameCtrl.text.trim().isNotEmpty) _scheduleCheck();
   }
 
   @override
   void dispose() {
+    _checkDebounce?.cancel();
     _nameCtrl.dispose();
     super.dispose();
   }
 
-  bool get _hasName => _nameCtrl.text.trim().isNotEmpty;
-  bool get _hasGender => _gender != null;
-  bool get _canFinish => _hasName && _hasGender && _birthday != null;
+  void _onNameChanged() {
+    setState(() {
+      _nameOk = false;
+      _nameError = null;
+    });
+    _scheduleCheck();
+  }
 
-  int get _activeDot => !_hasName ? 0 : (!_hasGender ? 1 : 2);
+  /// 타이핑이 멈추면(400ms) 형식·중복을 검사한다.
+  void _scheduleCheck() {
+    _checkDebounce?.cancel();
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      setState(() {
+        _checking = false;
+        _nameOk = false;
+        _nameError = null;
+      });
+      return;
+    }
+    // 형식 오류는 즉시.
+    final fmt = NicknameService.formatError(name);
+    if (fmt != null) {
+      setState(() {
+        _checking = false;
+        _nameOk = false;
+        _nameError = fmt;
+      });
+      return;
+    }
+    setState(() => _checking = true);
+    _checkDebounce = Timer(const Duration(milliseconds: 400), () async {
+      final svc = ref.read(nicknameServiceProvider);
+      bool taken = false;
+      try {
+        taken = await svc.isTaken(name);
+      } catch (_) {
+        taken = false; // 검사 실패 시 통과(온보딩 안 막음)
+      }
+      if (!mounted || _nameCtrl.text.trim() != name) return;
+      setState(() {
+        _checking = false;
+        _nameOk = !taken;
+        _nameError = taken ? '이미 사용중인 닉네임입니다' : null;
+      });
+    });
+  }
+
+  bool get _hasGender => _gender != null;
+  // 이름은 형식·중복 검사를 통과해야(_nameOk) 다음 단계로 넘어간다.
+  bool get _canFinish => _nameOk && _hasGender && _birthday != null;
+
+  int get _activeDot => !_nameOk ? 0 : (!_hasGender ? 1 : 2);
 
   Future<void> _pickDate() async {
     final now = DateTime(2026, 6, 23);
@@ -65,9 +124,22 @@ class _InfoPageState extends ConsumerState<InfoPage> {
       '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
 
   Future<void> _finish() async {
+    final name = _nameCtrl.text.trim();
+    // 완성 직전 한 번 더 중복 확인(디바운스 사이에 남이 선점했을 수 있음).
+    final svc = ref.read(nicknameServiceProvider);
+    if (await svc.isTaken(name)) {
+      if (!mounted) return;
+      setState(() {
+        _nameOk = false;
+        _nameError = '이미 사용중인 닉네임입니다';
+      });
+      return;
+    }
+    await svc.reserve(name); // 이름 예약(등록)
+
     final ctrl = ref.read(onboardingProvider.notifier);
     ctrl.update((d) {
-      d.name = _nameCtrl.text.trim();
+      d.name = name;
       d.gender = _gender;
       d.birthday = _birthday;
     });
@@ -114,10 +186,27 @@ class _InfoPageState extends ConsumerState<InfoPage> {
                       controller: _nameCtrl,
                       hint: 'ex) 뭉치',
                       onSubmitted: (_) {},
+                      error: _nameError != null,
                     ),
+                    // 중복·형식 오류 / 확인 중 안내.
+                    if (_nameError != null || _checking) ...[
+                      const SizedBox(height: 10),
+                      Center(
+                        child: Text(
+                          _nameError ?? '확인 중...',
+                          style: AppText.body(
+                            size: 13,
+                            weight: FontWeight.w600,
+                            color: _nameError != null
+                                ? AppColors.coral
+                                : AppColors.subtle,
+                          ),
+                        ),
+                      ),
+                    ],
 
-                    // 성별 (이름 입력 후 노출)
-                    if (_hasName) ...[
+                    // 성별 (이름이 통과된 후 노출)
+                    if (_nameOk) ...[
                       const SizedBox(height: 24),
                       _Label('성별'),
                       const SizedBox(height: 10),
@@ -147,7 +236,7 @@ class _InfoPageState extends ConsumerState<InfoPage> {
                     ],
 
                     // 생일 (성별 선택 후 노출)
-                    if (_hasName && _hasGender) ...[
+                    if (_nameOk && _hasGender) ...[
                       const SizedBox(height: 24),
                       _Label('생일'),
                       const SizedBox(height: 10),
@@ -235,20 +324,29 @@ class _PillField extends StatelessWidget {
     required this.hint,
     this.icon,
     this.onSubmitted,
+    this.error = false,
   });
   final TextEditingController controller;
   final String hint;
   final IconData? icon;
   final ValueChanged<String>? onSubmitted;
 
+  /// true면 테두리를 빨갛게(중복·형식 오류).
+  final bool error;
+
   @override
   Widget build(BuildContext context) {
+    final normal = error ? AppColors.coral : AppColors.line;
+    final focused = error ? AppColors.coral : AppColors.primary;
     return TextField(
       controller: controller,
       onSubmitted: onSubmitted,
+      // 이름 필드(아이콘 없음)만 8자 제한. 생일 필드는 제한 없음.
+      maxLength: icon == null ? 8 : null,
       textAlign: icon == null ? TextAlign.center : TextAlign.start,
       style: AppText.body(size: 15, color: AppColors.ink),
       decoration: InputDecoration(
+        counterText: '', // 8자 카운터 숨김
         hintText: hint,
         hintStyle: AppText.body(size: 15, color: AppColors.subtle),
         prefixIcon: icon == null
@@ -260,11 +358,11 @@ class _PillField extends StatelessWidget {
             const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(28),
-          borderSide: const BorderSide(color: AppColors.line, width: 1.4),
+          borderSide: BorderSide(color: normal, width: 1.4),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(28),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.6),
+          borderSide: BorderSide(color: focused, width: 1.6),
         ),
       ),
     );

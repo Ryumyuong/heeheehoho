@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/pixel_theme.dart';
@@ -17,8 +18,68 @@ class MainShell extends StatelessWidget {
     (icon: 'assets/icons/nav_profile.png', label: '프로필'),
   ];
 
+  /// 홈 탭 인덱스(산책·커뮤니티·홈·스토어·프로필 중 홈).
+  static const int _homeIndex = 2;
+
   @override
   Widget build(BuildContext context) {
+    // 뒤로가기: 홈이 아닌 탭이면 홈 탭으로 돌아가고, 홈 탭이면 종료 확인창을 띄운다.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (navShell.currentIndex != _homeIndex) {
+          navShell.goBranch(_homeIndex, initialLocation: true);
+          return;
+        }
+        // 홈 탭에서 뒤로가기 → 종료 확인.
+        final ctx = context;
+        final exit = await _confirmExit(ctx);
+        if (exit == true) SystemNavigator.pop();
+      },
+      child: _buildShell(context),
+    );
+  }
+
+  Future<bool?> _confirmExit(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          '앱을 종료할까요?',
+          style: AppText.body(size: 16, weight: FontWeight.w800),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              '취소',
+              style: AppText.body(
+                size: 14,
+                color: AppColors.subtle,
+                weight: FontWeight.w700,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              '종료',
+              style: AppText.body(
+                size: 14,
+                color: AppColors.primary,
+                weight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShell(BuildContext context) {
     return Scaffold(
       body: navShell,
       bottomNavigationBar: Container(

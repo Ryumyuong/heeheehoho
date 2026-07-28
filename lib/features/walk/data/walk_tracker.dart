@@ -26,10 +26,14 @@ class WalkStep {
 /// 속도의 점프를 걸러낸다.
 class WalkTracker {
   StreamSubscription<Position>? _sub;
-  Position? _last;
+  _Pt? _last;
+
+  /// 좌표를 부드럽게 만드는 칼만 필터(위경도 각각). raw 좌표의 지그재그를 줄여
+  /// 거리 과다 측정을 완화한다.
+  _KalmanLatLng _kalman = _KalmanLatLng();
 
   /// 이 값보다 오차가 큰 위치는 버린다(m). 너무 크면 제자리에서도 좌표가 튄다.
-  static const double _maxAccuracy = 35;
+  static const double _maxAccuracy = 30;
 
   /// 이 거리보다 짧은 이동은 GPS 흔들림으로 본다(m).
   /// 제자리에 서 있을 때 좌표가 흔들려 거리가 늘지 않도록 넉넉히 잡는다.
@@ -37,6 +41,10 @@ class WalkTracker {
 
   /// 사람이 낼 수 없는 속도(m/s). 이보다 빠른 점프는 튄 좌표로 본다.
   static const double _maxSpeed = 8;
+
+  /// GPS가 "멈춰 있음"으로 볼 속도(m/s). 도플러 속도가 이보다 느리면 실제로
+  /// 이동한 게 아니라 좌표 노이즈로 보고 거리에 넣지 않는다(속도 교차검증).
+  static const double _minSpeed = 0.4;
 
   bool get isTracking => _sub != null;
 
@@ -66,6 +74,7 @@ class WalkTracker {
     }
 
     _last = null;
+    _kalman = _KalmanLatLng(); // 새 산책이면 필터도 초기화
     try {
       _sub = Geolocator.getPositionStream(locationSettings: _settings()).listen(
         (pos) {
@@ -89,9 +98,10 @@ class WalkTracker {
   }
 
   LocationSettings _settings() {
-    // distanceFilter: 이만큼 움직여야 이벤트가 온다. 배터리도 아끼고
-    // 제자리 흔들림도 어느 정도 걸러진다. 너무 크면 달리기·정지 반응이 늦어진다.
-    const filter = 4;
+    // distanceFilter: 이만큼 움직여야 이벤트가 온다. 값이 작으면 GPS 노이즈가
+    // 지그재그로 누적돼 실제보다 거리가 부풀려진다. 조금 크게 잡아 과다 측정을
+    // 줄인다(대신 달리기·정지 반응은 몇 미터 늦어진다).
+    const filter = 10;
     if (kIsWeb) {
       return const LocationSettings(
         accuracy: LocationAccuracy.high,
@@ -136,31 +146,100 @@ class WalkTracker {
   WalkStep? _accept(Position pos) {
     if (pos.accuracy > _maxAccuracy) return null;
 
+    // ① 칼만 필터로 좌표를 매끄럽게(지그재그 제거).
+    final sm = _kalman.process(
+      pos.latitude,
+      pos.longitude,
+      pos.accuracy,
+      pos.timestamp.millisecondsSinceEpoch,
+    );
+
     final prev = _last;
     if (prev == null) {
-      _last = pos; // 첫 점은 기준만 잡고 거리에 넣지 않는다.
-      return null;
+      _last = _Pt(sm.lat, sm.lng, pos.timestamp);
+      return null; // 첫 점은 기준만 잡는다.
     }
 
     final meters = Geolocator.distanceBetween(
-      prev.latitude,
-      prev.longitude,
-      pos.latitude,
-      pos.longitude,
+      prev.lat,
+      prev.lng,
+      sm.lat,
+      sm.lng,
     );
-    final dt = pos.timestamp.difference(prev.timestamp).inMilliseconds / 1000;
-
-    if (meters < _minMove) return null; // 제자리 흔들림
+    final dt = pos.timestamp.difference(prev.time).inMilliseconds / 1000;
     if (dt <= 0) return null;
-    if (meters / dt > _maxSpeed) {
-      // 튄 좌표. 기준점만 옮기고 거리에는 안 넣는다.
-      _last = pos;
+
+    // ② 속도 교차검증: GPS 도플러 속도가 실제 이동을 뒷받침할 때만 인정한다.
+    // (좌표는 흔들려도 도플러 속도는 정지 시 0에 가깝다 → 제자리 노이즈 차단)
+    final gpsSpeed = pos.speed; // m/s (Doppler)
+    final segSpeed = meters / dt;
+    if (segSpeed > _maxSpeed) {
+      _last = _Pt(sm.lat, sm.lng, pos.timestamp); // 튄 좌표: 기준만 옮김
       return null;
     }
+    if (meters < _minMove) return null; // 미세 흔들림
+    // 도플러 속도가 유효하면 그걸로 정지 여부를 가른다.
+    if (gpsSpeed >= 0 && gpsSpeed < _minSpeed && segSpeed < _minSpeed) {
+      return null; // 실제로는 멈춰 있음
+    }
 
-    _last = pos;
-    // GPS가 주는 속도가 있으면 그걸 쓰고, 없으면 거리/시간으로 구한다.
-    final speed = pos.speed > 0 ? pos.speed : meters / dt;
+    _last = _Pt(sm.lat, sm.lng, pos.timestamp);
+    final speed = gpsSpeed > 0 ? gpsSpeed : segSpeed;
     return WalkStep(meters: meters, metersPerSecond: speed);
+  }
+}
+
+/// 필터를 거친 좌표 한 점(시각 포함).
+class _Pt {
+  const _Pt(this.lat, this.lng, this.time);
+  final double lat;
+  final double lng;
+  final DateTime time;
+}
+
+/// 위경도용 간단 칼만 필터. GPS 정확도(m)를 측정 잡음으로 써서, 좌표가 흔들릴
+/// 때는 이전 추정에 더 무게를 두고 매끄럽게 이어준다.
+///
+/// 참고: 안드로이드 위치 스무딩에서 널리 쓰는 1D 근사(위·경도 독립).
+class _KalmanLatLng {
+  double? _lat;
+  double? _lng;
+  double _variance = -1; // <0 이면 초기화 전
+  int _timeMs = 0;
+
+  /// 이동체가 초당 만들어내는 불확실성(m²/s). 클수록 새 좌표를 더 믿는다.
+  static const double _q = 3.0;
+
+  ({double lat, double lng}) process(
+    double lat,
+    double lng,
+    double accuracy,
+    int timeMs,
+  ) {
+    // 정확도(m)의 제곱을 측정 잡음으로 쓴다. 너무 좋게 나오면 하한을 둔다.
+    final acc = accuracy < 1 ? 1.0 : accuracy;
+    final r = acc * acc;
+
+    if (_variance < 0) {
+      _lat = lat;
+      _lng = lng;
+      _variance = r;
+      _timeMs = timeMs;
+      return (lat: _lat!, lng: _lng!);
+    }
+
+    // 예측: 시간이 지난 만큼 불확실성이 커진다.
+    final dt = (timeMs - _timeMs) / 1000.0;
+    if (dt > 0) {
+      _variance += dt * _q;
+      _timeMs = timeMs;
+    }
+
+    // 갱신: 칼만 이득으로 이전 추정과 새 측정을 섞는다.
+    final k = _variance / (_variance + r);
+    _lat = _lat! + k * (lat - _lat!);
+    _lng = _lng! + k * (lng - _lng!);
+    _variance *= (1 - k);
+    return (lat: _lat!, lng: _lng!);
   }
 }

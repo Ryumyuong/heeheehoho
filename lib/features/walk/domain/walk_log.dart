@@ -43,6 +43,23 @@ class WalkMath {
 
   static int estimatedSteps(double meters) => (meters / metersPerStep).round();
 
+  /// 보폭 범위(m). 이 밖이면 걸음 센서가 실제와 안 맞는(과다·과소 카운트) 것으로 본다.
+  static const double minStride = 0.5; // 짧은 보폭
+  static const double maxStride = 1.6; // 뛰기 보폭
+
+  /// 걸음 센서 실측값을 **정확해진 GPS 거리** 기준으로 보정한다.
+  ///
+  /// 뛸 때 폰이 튀어 걸음이 과하게 잡히면(보폭이 0.5m보다 짧아지면) 거리에 맞춰
+  /// 줄이고, 센서가 적게 잡히면 늘린다. GPS를 신뢰할 만큼 걸은 뒤에만 적용한다.
+  static int calibratedSteps(int measured, double meters) {
+    if (meters < 300) return measured; // 아직 거리가 짧으면 센서값 그대로
+    final upper = (meters / minStride).round(); // 이보다 많으면 과다 카운트
+    final lower = (meters / maxStride).round(); // 이보다 적으면 과소 카운트
+    if (measured > upper) return upper;
+    if (measured < lower) return lower;
+    return measured;
+  }
+
   /// 지금 이동 속도 → 화면 배속.
   ///
   /// 거리가 빨리 늘면 강아지도 배경도 빨라지고, 느려지면 같이 느려진다.
@@ -82,8 +99,11 @@ class WalkSession {
   /// 거리에서 어림잡은 걸음 수(실측 아님).
   int get estimatedSteps => WalkMath.estimatedSteps(meters);
 
-  /// 이번 산책의 걸음 수. 센서 값이 있으면 그걸 쓰고, 없으면 거리에서 어림잡는다.
-  int get steps => measuredSteps ?? estimatedSteps;
+  /// 이번 산책의 걸음 수.
+  /// 센서 값이 있으면 GPS 거리로 보정해서 쓰고, 없으면 거리에서 어림잡는다.
+  int get steps => measuredSteps == null
+      ? estimatedSteps
+      : WalkMath.calibratedSteps(measuredSteps!, meters);
 
   /// 화면·기록에 쓰는 거리(m).
   ///
