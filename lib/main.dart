@@ -10,12 +10,17 @@ import 'package:upgrader/upgrader.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/pixel_theme.dart';
+
 import 'features/onboarding/data/nickname_service.dart';
 import 'features/pet/application/pet_providers.dart';
 import 'features/pet/data/pet_repository.dart';
 import 'features/walk/application/walk_providers.dart';
 import 'features/walk/data/walk_repository.dart';
 import 'shared/widgets/design_scale.dart';
+
+/// 스토어 스크린샷 캡처용 앱 폭(px). 0이면 평소 동작.
+/// 예) `flutter run -d web-server --dart-define=SHOT_WIDTH=665`
+const int _kShotWidth = int.fromEnvironment('SHOT_WIDTH');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,11 +29,26 @@ Future<void> main() async {
     DeviceOrientation.portraitUp,
   ]);
 
-  // Firebase(닉네임 중복 검사용). 설정이 없거나 실패하면 null로 두고 검사를
-  // 건너뛴다(온보딩이 막히지 않게). 설정 파일이 들어오면 자동으로 켜진다.
+  // Firebase. 모바일은 google-services.json / GoogleService-Info.plist 로 자동
+  // 초기화되지만, 웹은 설정 파일이 없어서 옵션을 직접 넣어야 한다.
+  // 실패하면 null로 두고 관련 기능(중복검사·투표·게시물)을 건너뛴다.
   FirebaseFirestore? firestore;
   try {
-    await Firebase.initializeApp();
+    if (kIsWeb) {
+      await Firebase.initializeApp(
+        options: const FirebaseOptions(
+          apiKey: 'AIzaSyCSgGmnSrwLDpJ1Oo3V57Yl6lmh-4ivED0',
+          authDomain: 'heeheehoho.firebaseapp.com',
+          projectId: 'heeheehoho',
+          storageBucket: 'heeheehoho.firebasestorage.app',
+          messagingSenderId: '993867911735',
+          appId: '1:993867911735:web:f7488318f87ba01d6b65b2',
+          measurementId: 'G-RVDFFDTE9N',
+        ),
+      );
+    } else {
+      await Firebase.initializeApp();
+    }
     firestore = FirebaseFirestore.instance;
   } catch (_) {
     firestore = null;
@@ -37,6 +57,8 @@ Future<void> main() async {
   await Hive.initFlutter();
   final petRepo = await PetRepository.open();
   final walkRepo = await WalkRepository.open();
+  // 커뮤니티 로컬 저장(내 프로필 사진 URL, 밸런스 투표 선택 등).
+  await Hive.openBox('community_box');
 
   runApp(
     ProviderScope(
@@ -77,8 +99,8 @@ class HeeheehohoApp extends StatelessWidget {
       // 폰트·아이콘·이미지·여백이 같은 비율로 함께 커지고 작아진다.
       // UpgradeAlert: 스토어 최신 버전을 확인해 구버전이면 업데이트 안내창을
       // 띄우고 "지금 업데이트" 시 스토어로 보낸다(웹에서는 비활성).
-      builder: (context, child) => DesignScale(
-        child: kIsWeb
+      builder: (context, child) {
+        final content = kIsWeb
             ? child!
             : UpgradeAlert(
                 upgrader: Upgrader(
@@ -86,8 +108,20 @@ class HeeheehohoApp extends StatelessWidget {
                 ),
                 showIgnore: false, // "무시" 없이 업데이트 or 나중에
                 child: child!,
-              ),
-      ),
+              );
+        // 미니게임은 큰 화면에서도 꽉 차게(990 제한 해제). 나머지는 990 컬럼 유지.
+        final path = appRouter.routerDelegate.currentConfiguration.uri.path;
+        final fullWidth = path.startsWith('/games');
+        return DesignScale(
+          // 스토어 스크린샷용: 웹에서 `--dart-define=SHOT_WIDTH=665` 처럼 주면
+          // 앱을 그 폭의 컬럼으로 그린다(기기 비율로 캡처하려고). 기본값 0이면
+          // 평소 동작 그대로라 릴리즈 빌드에는 영향이 없다.
+          mobileMaxWidth: _kShotWidth > 0
+              ? _kShotWidth.toDouble()
+              : (fullWidth ? double.infinity : 990),
+          child: content,
+        );
+      },
     );
   }
 }

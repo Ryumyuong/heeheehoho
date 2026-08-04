@@ -170,7 +170,7 @@ class _InfoPageState extends ConsumerState<InfoPage> {
                     const SizedBox(height: 22),
                     Center(
                       child: Text(
-                        '네발친구의\n정보를 입력해 주세요',
+                        '프로필에 사용할\n닉네임을 입력해주세요.',
                         textAlign: TextAlign.center,
                         style: AppText.pixel(size: 24, height: 1.6),
                       ),

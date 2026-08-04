@@ -54,5 +54,11 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- 개인정보처리방침 링크를 브라우저로 열기 위해(url_launcher).
+             Android 11+ 에서는 이 선언이 없으면 canLaunch/launch 가 실패한다. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
     </queries>
 </manifest>

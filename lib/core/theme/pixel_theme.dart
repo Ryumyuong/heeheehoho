@@ -28,12 +28,30 @@ class AppColors {
   static const Color guest = Color(0xFF2E2E2E);
 
   // 강아지 커스터마이즈 색상 팔레트
+  /// 털색 팔레트. 스프라이트에 곱셈 합성(modulate)으로 입히므로 실제 개 털색
+  /// 범위를 벗어나지 않는 색만 넣는다.
+  ///
+  /// 앞의 5색은 기존 순서를 그대로 유지한다 — 저장된 펫이 `furColorValue`(ARGB)로
+  /// 색을 들고 있고 기본값이 `furColors[0]`이라, 순서를 바꾸면 기존 사용자의
+  /// 강아지 색이 바뀐다. 새 색은 항상 뒤에 붙일 것.
+  ///
+  /// 사진 분석([analyzeDogPhoto])은 이 목록에서 Lab 거리가 가장 가까운 색을
+  /// 고르므로, 색이 촘촘할수록 사진 추정도 정확해진다.
   static const List<Color> furColors = [
     Color(0xFFC9A27E), // 베이지브라운
     Color(0xFFF2F0EB), // 화이트
     Color(0xFF3A3A3A), // 블랙
     Color(0xFF6B4A2B), // 브라운
     Color(0xFFE8D7BE), // 크림
+    Color(0xFFE5A84C), // 골드
+    Color(0xFFF2B48C), // 살구
+    Color(0xFFB5713F), // 시나몬
+    Color(0xFF8C3F2A), // 적갈
+    Color(0xFF4A2E1E), // 초코
+    Color(0xFFC3BDB4), // 실버
+    Color(0xFF8E8880), // 그레이
+    Color(0xFF9BA3A8), // 애쉬블루
+    Color(0xFF6E6963), // 차콜
   ];
 }
 

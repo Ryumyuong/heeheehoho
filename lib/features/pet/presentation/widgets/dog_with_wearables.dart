@@ -83,7 +83,11 @@ class _DogWithWearablesState extends State<DogWithWearables>
           for (final w in wearables)
             if (w.asset != null)
               () {
-                final anchor = _wearAnchor[w.id] ?? Offset.zero;
+                // 걷기(새 비숑 프레임)는 머리가 가운데라 앵커가 다르다.
+                final anchor = (widget.walking
+                        ? (_wearAnchorWalk[w.id] ?? _wearAnchor[w.id])
+                        : _wearAnchor[w.id]) ??
+                    Offset.zero;
                 final sz = _wearSize[w.id] ?? const Size(44, 44);
                 // 산책 중 좌우 반전 시 가로 위치도 함께 반전.
                 final dx = widget.flip ? -anchor.dx : anchor.dx;
@@ -133,6 +137,15 @@ class _DogWithWearablesState extends State<DogWithWearables>
     'sky_ribbon': Offset(27, -50), // 머리 위, 왕관보다 약간 오른쪽
     // 턱 바로 아래 목. 가슴까지 내리면 스카프가 아니라 앞치마처럼 보인다.
     'green_scarf': Offset(18, 16),
+  };
+
+  // 걷기(새 비숑) 프레임용 앵커. 비숑은 머리가 가운데라 dx를 0 근처로 모은다.
+  // 값이 안 맞으면 이 숫자만 조정하면 된다.
+  static const Map<String, Offset> _wearAnchorWalk = {
+    'crown': Offset(13, -50),
+    'heart_glasses': Offset(14, -22), // 눈에 딱 맞게
+    'sky_ribbon': Offset(25, -44),
+    'green_scarf': Offset(10, 14),
   };
 
   // 원본 비율 유지한 표시 크기.

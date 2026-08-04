@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/feature_flags.dart';
 import '../../../core/theme/pixel_theme.dart';
 import '../../../shared/widgets/design_scale.dart';
 import '../../../shared/widgets/wallet_chip.dart';
@@ -141,6 +142,12 @@ class ProfilePage extends ConsumerWidget {
             ),
             const SizedBox(height: 20),
             _MenuTile(
+              label: '미니게임',
+              icon: Icons.sports_esports,
+              onTap: () => context.push('/games'),
+            ),
+            const SizedBox(height: 12),
+            _MenuTile(
               label: '로그아웃',
               icon: Icons.logout,
               onTap: () => _logout(context, ref),
@@ -191,8 +198,11 @@ class _Header extends StatelessWidget {
             _comma(paws),
             onTap: () => context.push('/charge'),
           ),
-          const SizedBox(width: 8),
-          WalletChip.bones(_comma(bones)),
+          // 마켓이 닫혀 있는 동안 뼈다귀는 감춘다(kBonesEnabled).
+          if (kBonesEnabled) ...[
+            const SizedBox(width: 8),
+            WalletChip.bones(_comma(bones)),
+          ],
           const SizedBox(width: 10),
           GestureDetector(
             onTap: () => context.go('/store'),

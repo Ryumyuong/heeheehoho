@@ -31,9 +31,42 @@ class WalkBackground {
 
   /// 도시 강변(기본). 1236x1665.
   static const city = WalkBackground(
-    image: AssetImage('assets/images/walk_bg_city.png'),
+    image: AssetImage('assets/images/walk_bg_city.webp'),
     aspect: 1236 / 1665,
   );
+
+  /// 지역 + 시간대에 맞는 배경.
+  ///
+  /// 배경 16장은 지역(서울·부산·제주·인천) × 시간(새벽·아침·저녁·밤) 순으로
+  /// bg_01~16에 들어 있다. 지역은 [place](역지오코딩 지역명)으로, 시간은
+  /// [now]의 시각으로 고른다. 모두 1236x1665.
+  factory WalkBackground.forPlaceAndTime(String place, DateTime now) {
+    // 지역 → bg 시작 인덱스(0/4/8/12). 못 알아보면 서울.
+    int region;
+    if (place.contains('부산') || place.contains('해운대') || place.contains('광안')) {
+      region = 4; // 부산
+    } else if (place.contains('제주') || place.contains('성산')) {
+      region = 8; // 제주
+    } else if (place.contains('인천') || place.contains('송도')) {
+      region = 12; // 인천
+    } else {
+      region = 0; // 서울(기본)
+    }
+    // 시각 → 시간대 오프셋(새벽0 / 아침1 / 저녁2 / 밤3).
+    final h = now.hour;
+    final int t = (h >= 5 && h < 7)
+        ? 0
+        : (h >= 7 && h < 17)
+            ? 1
+            : (h >= 17 && h < 20)
+                ? 2
+                : 3;
+    final n = (region + t + 1).toString().padLeft(2, '0'); // bg_01~16
+    return WalkBackground(
+      image: AssetImage('assets/images/games/bg/bg_$n.webp'),
+      aspect: 1236 / 1665,
+    );
+  }
 }
 
 class _WalkSceneryState extends State<WalkScenery>

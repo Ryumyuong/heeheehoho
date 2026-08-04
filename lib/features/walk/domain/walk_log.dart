@@ -36,7 +36,8 @@ class WalkMath {
 
   /// 이 배속부터 "달리기"로 본다. 그보다 느리면 홈과 같은 걷기 모션을 쓴다.
   /// (낮출수록 덜 빨라도 강아지가 뛴다)
-  static const double runThreshold = 1.0;
+  /// 1.5 = 약 2.1m/s(가벼운 조깅) 이상부터 달리기. 보통 걷기는 걷기 모션 유지.
+  static const double runThreshold = 1.5;
 
   /// 평균 보폭(m). 걸음 센서가 없을 때 GPS 거리에서 걸음 수를 어림잡는 용도.
   static const double metersPerStep = 0.72;

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/feature_flags.dart';
 import '../../../core/theme/pixel_theme.dart';
 import '../../home/domain/room_item.dart';
 import '../../pet/application/pet_providers.dart';
@@ -442,11 +443,13 @@ class _StorePageState extends ConsumerState<StorePage> {
               Expanded(
                 child: _tab == 0
                     ? _buildMiniroom(owned)
-                    : _MarketTab(
-                        campaign: ref.watch(campaignProvider),
-                        onGift: _gift,
-                        onJoinCampaign: _joinCampaign,
-                      ),
+                    : kMarketReady
+                        ? _MarketTab(
+                            campaign: ref.watch(campaignProvider),
+                            onGift: _gift,
+                            onJoinCampaign: _joinCampaign,
+                          )
+                        : const _MarketComingSoon(),
               ),
             ],
           ),
@@ -697,8 +700,11 @@ class _Header extends StatelessWidget {
             _comma(paws),
             onTap: () => context.push('/charge'),
           ),
-          const SizedBox(width: 8),
-          WalletChip.bones(_comma(bones)),
+          // 마켓이 닫혀 있는 동안 뼈다귀는 감춘다(kBonesEnabled).
+          if (kBonesEnabled) ...[
+            const SizedBox(width: 8),
+            WalletChip.bones(_comma(bones)),
+          ],
           const SizedBox(width: 10),
           // 장바구니(원형). 헤더 오렌지보다 진한 색이라 배경 위에서 떠 보인다.
           Container(
@@ -1000,7 +1006,7 @@ class _RoomPreview extends StatelessWidget {
               clipBehavior: Clip.none,
               children: [
                 Image.asset(
-                  'assets/images/room_bg.png',
+                  'assets/images/room_bg.webp',
                   fit: BoxFit.cover,
                   filterQuality: FilterQuality.none,
                   errorBuilder: (_, __, ___) =>
@@ -1413,6 +1419,94 @@ class _CartBar extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 마켓 오픈 여부. 정산 계좌가 준비되기 전까지는 "준비중" 안내만 보여준다.
+/// 다시 열 때는 `--dart-define=MARKET_READY=true` 로 빌드.
+final bool kMarketReady = const bool.fromEnvironment('MARKET_READY');
+
+/// 마켓 준비중 안내: 로고 + 공사중 강아지 + 안내 문구 + 커뮤니티로 이동.
+class _MarketComingSoon extends StatelessWidget {
+  const _MarketComingSoon();
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(_hPad(context), 24, _hPad(context), 32),
+      child: Column(
+        children: [
+          Image.asset(
+            'assets/images/heeheehoho_arc.png',
+            width: 220,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.none,
+          ),
+          const SizedBox(height: 18),
+          Image.asset(
+            'assets/images/store_ready_dog.webp',
+            width: 200,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.none,
+          ),
+          const SizedBox(height: 24),
+          // 🚧 스토어 준비중입니다 🚧
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Image.asset('assets/icons/ic_barrier.png', width: 26, height: 26),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  '스토어 준비중입니다',
+                  textAlign: TextAlign.center,
+                  style: AppText.pixel(
+                    size: 30,
+                    height: 1.2,
+                    color: const Color(0xFF2D2D2D),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Image.asset('assets/icons/ic_barrier.png', width: 26, height: 26),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Text(
+            '다양한 아이템들을 가득 담아\n열심히 준비하고 있습니다.\n잠시만 기다려주세요!',
+            textAlign: TextAlign.center,
+            style: AppText.body(
+              size: 20,
+              weight: FontWeight.w500,
+              height: 1.5,
+              color: const Color(0xFF2D2D2D),
+            ),
+          ),
+          const SizedBox(height: 32),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => context.go('/community'),
+            child: Container(
+              height: 56,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFD8B3E),
+                borderRadius: BorderRadius.circular(5),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                '커뮤니티 둘러보기',
+                style: AppText.body(
+                  size: 16,
+                  weight: FontWeight.w800,
+                  color: const Color(0xFFFFFEFD),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

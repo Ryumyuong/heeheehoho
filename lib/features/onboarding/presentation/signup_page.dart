@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/app_links.dart';
+import '../../../core/config/feature_flags.dart';
 import '../../../core/theme/pixel_theme.dart';
 import '../../../shared/widgets/app_buttons.dart';
 import '../../pet/application/pet_providers.dart';
 import '../../pet/domain/pet.dart';
-import '../../pet/presentation/widgets/pixel_dog.dart';
+import '../../pet/presentation/widgets/parts_dog.dart';
 
 class SignupPage extends ConsumerWidget {
   const SignupPage({super.key});
@@ -51,50 +53,61 @@ class SignupPage extends ConsumerWidget {
                 decoration: const BoxDecoration(
                     color: AppColors.creamPanel, shape: BoxShape.circle),
                 alignment: Alignment.center,
-                child: PixelDogFace(
+                child: PartsDog(
                   furColor: pet?.furColor ?? AppColors.furColors[0],
                   eyeStyle: pet?.eyeStyle ?? EyeStyle.round,
                   noseStyle: pet?.noseStyle ?? NoseStyle.triangle,
                   mouthStyle: pet?.mouthStyle ?? MouthStyle.smile,
-                  size: 92,
+                  height: 112,
                 ),
               ),
               const Spacer(),
-              SocialButton(
-                label: '구글로 시작하기',
-                background: Colors.white,
-                textColor: AppColors.ink,
-                badge: _circleText('G', const Color(0xFF4285F4)),
-                onPressed: () {
-                  ref.read(isGuestProvider.notifier).setGuest(false);
-                  context.go('/home');
-                },
-              ),
-              const SizedBox(height: 12),
-              SocialButton(
-                label: '카카오로 시작하기',
-                background: AppColors.kakao,
-                textColor: AppColors.kakaoText,
-                badge: _circleText('K', AppColors.kakaoText),
-                onPressed: () {
-                  ref.read(isGuestProvider.notifier).setGuest(false);
-                  context.go('/home');
-                },
-              ),
-              const SizedBox(height: 12),
-              SocialButton(
-                label: '네이버로 시작하기',
-                background: AppColors.naver,
-                textColor: Colors.white,
-                badge: _circleText('N', Colors.white, bg: Colors.transparent),
-                onPressed: () {
-                  ref.read(isGuestProvider.notifier).setGuest(false);
-                  context.go('/home');
-                },
-              ),
+              // 실제 인증이 붙기 전까지 소셜 버튼은 감춘다([kSocialLoginEnabled]).
+              if (kSocialLoginEnabled) ...[
+                SocialButton(
+                  label: '구글로 시작하기',
+                  background: Colors.white,
+                  textColor: AppColors.ink,
+                  badge: _circleText('G', const Color(0xFF4285F4)),
+                  onPressed: () {
+                    ref.read(isGuestProvider.notifier).setGuest(false);
+                    context.go('/home');
+                  },
+                ),
+                const SizedBox(height: 12),
+                SocialButton(
+                  label: '카카오로 시작하기',
+                  background: AppColors.kakao,
+                  textColor: AppColors.kakaoText,
+                  badge: _circleText('K', AppColors.kakaoText),
+                  onPressed: () {
+                    ref.read(isGuestProvider.notifier).setGuest(false);
+                    context.go('/home');
+                  },
+                ),
+                const SizedBox(height: 12),
+                SocialButton(
+                  label: '네이버로 시작하기',
+                  background: AppColors.naver,
+                  textColor: Colors.white,
+                  badge: _circleText('N', Colors.white, bg: Colors.transparent),
+                  onPressed: () {
+                    ref.read(isGuestProvider.notifier).setGuest(false);
+                    context.go('/home');
+                  },
+                ),
+              ] else
+                // 소셜 버튼을 감추면 이 화면에 나갈 길이 없어지므로 진입 버튼을 둔다.
+                SocialButton(
+                  label: '시작하기',
+                  background: AppColors.guest,
+                  textColor: Colors.white,
+                  badge: const SizedBox(width: 24),
+                  onPressed: () => context.go('/home'),
+                ),
               const SizedBox(height: 16),
               TextButton(
-                onPressed: () {},
+                onPressed: () => openExternal(context, AppLinks.privacyPolicy),
                 child: Text('개인정보처리방침',
                     style: AppText.body(size: 12, color: AppColors.subtle)
                         .copyWith(decoration: TextDecoration.underline)),

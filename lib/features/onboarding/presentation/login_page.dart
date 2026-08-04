@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/app_links.dart';
+import '../../../core/config/feature_flags.dart';
 import '../../../core/theme/pixel_theme.dart';
 import '../../../shared/widgets/app_buttons.dart';
 import '../../pet/application/pet_providers.dart';
@@ -76,35 +78,39 @@ class LoginPage extends ConsumerWidget {
     padding: const EdgeInsets.symmetric(horizontal: _buttonInset),
     child: Column(
       children: [
+        // 실제 인증이 붙기 전까지 소셜 버튼은 감춘다([kSocialLoginEnabled]).
+        if (kSocialLoginEnabled) ...[
+          SocialButton(
+            label: '구글로 시작하기',
+            background: Colors.white,
+            textColor: Colors.black,
+            radius: _buttonRadius,
+            badge: const _ImageBadge('assets/images/badge_google.png'),
+            onPressed: () => _start(context, ref, guest: false),
+          ),
+          const SizedBox(height: 12),
+          SocialButton(
+            label: '카카오로 시작하기',
+            background: const Color(0xFFFEE602),
+            textColor: Colors.black,
+            radius: _buttonRadius,
+            badge: const _ImageBadge('assets/images/badge_kakao.png'),
+            onPressed: () => _start(context, ref, guest: false),
+          ),
+          const SizedBox(height: 12),
+          SocialButton(
+            label: '네이버로 시작하기',
+            background: const Color(0xFF04C75B),
+            textColor: Colors.white,
+            radius: _buttonRadius,
+            badge: const _ImageBadge('assets/images/badge_naver.png'),
+            onPressed: () => _start(context, ref, guest: false),
+          ),
+          const SizedBox(height: 12),
+        ],
         SocialButton(
-          label: '구글로 시작하기',
-          background: Colors.white,
-          textColor: Colors.black,
-          radius: _buttonRadius,
-          badge: const _ImageBadge('assets/images/badge_google.png'),
-          onPressed: () => _start(context, ref, guest: false),
-        ),
-        const SizedBox(height: 12),
-        SocialButton(
-          label: '카카오로 시작하기',
-          background: const Color(0xFFFEE602),
-          textColor: Colors.black,
-          radius: _buttonRadius,
-          badge: const _ImageBadge('assets/images/badge_kakao.png'),
-          onPressed: () => _start(context, ref, guest: false),
-        ),
-        const SizedBox(height: 12),
-        SocialButton(
-          label: '네이버로 시작하기',
-          background: const Color(0xFF04C75B),
-          textColor: Colors.white,
-          radius: _buttonRadius,
-          badge: const _ImageBadge('assets/images/badge_naver.png'),
-          onPressed: () => _start(context, ref, guest: false),
-        ),
-        const SizedBox(height: 12),
-        SocialButton(
-          label: '비회원으로 시작하기',
+          // 소셜 버튼이 없을 땐 이게 유일한 진입 버튼이라 '비회원'을 떼고 부른다.
+          label: kSocialLoginEnabled ? '비회원으로 시작하기' : '시작하기',
           background: AppColors.guest,
           textColor: Colors.white,
           radius: _buttonRadius,
@@ -113,7 +119,7 @@ class LoginPage extends ConsumerWidget {
         ),
         const SizedBox(height: 16),
         TextButton(
-          onPressed: () {},
+          onPressed: () => openExternal(context, AppLinks.privacyPolicy),
           child: Text(
             '개인정보처리방침',
             style:

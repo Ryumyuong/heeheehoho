@@ -65,17 +65,17 @@ class CustomizePage extends ConsumerWidget {
                     ),
                     _Section(
                       title: '색상',
-                      child: Row(
+                      // 색이 늘어 한 줄에 안 들어가므로 Wrap으로 흘려 담는다.
+                      child: Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
                         children: [
                           for (final c in AppColors.furColors)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 14),
-                              child: _ColorSwatch(
-                                color: c,
-                                selected: selectedColor == c.toARGB32(),
-                                onTap: () =>
-                                    ctrl.update((d) => d.furColorValue = c.toARGB32()),
-                              ),
+                            _ColorSwatch(
+                              color: c,
+                              selected: selectedColor == c.toARGB32(),
+                              onTap: () =>
+                                  ctrl.update((d) => d.furColorValue = c.toARGB32()),
                             ),
                         ],
                       ),
@@ -217,8 +217,8 @@ class _ColorSwatch extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 44,
-        height: 44,
+        width: 42,
+        height: 42,
         decoration: BoxDecoration(
           color: color,
           shape: BoxShape.circle,

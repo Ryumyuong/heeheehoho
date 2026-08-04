@@ -1,0 +1,55 @@
+rules_version = '2';
+
+// heeheehoho Firestore 보안 규칙
+// - 로그인(Firebase Auth) 없이 쓰는 앱이라, 아래 두 컬렉션만 공개하고
+//   나머지는 전부 기본 차단(default deny)한다.
+// - Firebase 콘솔 → Firestore Database → 규칙 탭에 그대로 붙여넣고 게시.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 닉네임(펫 이름) 중복 검사·예약
+    //  - read: 중복 확인
+    //  - create: 새 이름 예약만 허용(덮어쓰기·삭제 금지)
+    match /nicknames/{name} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly(['name', 'createdAt'])
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() >= 1
+                    && request.resource.data.name.size() <= 20;
+      allow update, delete: if false;
+    }
+
+    // 커뮤니티 밸런스 게임 투표 집계 (community/balance_{gameId})
+    //  - read: 실시간 현황 구독
+    //  - create/update: votesA·votesB(0 이상 정수)만 허용
+    match /community/{docId} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasOnly(['votesA', 'votesB'])
+                            && request.resource.data.votesA is int
+                            && request.resource.data.votesB is int
+                            && request.resource.data.votesA >= 0
+                            && request.resource.data.votesB >= 0;
+      allow delete: if false;
+    }
+
+    // 커뮤니티 게시물 (사진은 Storage, 메타데이터는 여기)
+    //  - read: 피드 실시간 구독
+    //  - create: 필수 필드 타입 검증 후 작성 허용
+    //  - update/delete: 금지(좋아요는 아직 로컬)
+    match /community_posts/{postId} {
+      allow read: if true;
+      allow create: if request.resource.data.text is string
+                    && request.resource.data.imageUrl is string
+                    && request.resource.data.createdAt is timestamp
+                    && request.resource.data.likes is int
+                    && request.resource.data.shares is int;
+      allow update, delete: if false;
+    }
+
+    // (미니게임 랭킹은 제거됨 — games/{gameId}/scores 규칙도 함께 삭제해
+    //  아무도 쓸 수 없게 둔다. 랭킹을 되살리면 규칙도 같이 되살릴 것)
+
+    // 위에 명시되지 않은 모든 경로는 자동으로 차단된다(default deny).
+  }
+}

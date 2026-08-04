@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/feature_flags.dart';
 import '../../../core/theme/pixel_theme.dart';
 import '../../../shared/widgets/design_scale.dart';
 import '../../../shared/widgets/wallet_chip.dart';
@@ -14,6 +15,7 @@ import '../../pet/presentation/widgets/running_dog.dart';
 import '../../store/application/campaign_providers.dart';
 import '../application/walk_providers.dart';
 import '../domain/walk_log.dart';
+import 'widgets/run_dust.dart';
 import 'widgets/walk_scenery.dart';
 
 /// 산책 화면 좌우 여백. 시안(412px)에서 24px이고, 폭이 달라지면 함께 늘고 준다.
@@ -47,11 +49,11 @@ class _WalkPageState extends ConsumerState<WalkPage> {
   // 결과·배너 이미지는 좀 큰 편이라, 화면에 처음 뜰 때 디코딩되면 한 박자 늦게
   // 나타난다. 탭에 들어온 순간 미리 디코딩해 두면 결과 화면에서 바로 뜬다.
   static const _preload = [
-    'assets/images/walk_result.png',
+    'assets/images/walk_result.webp',
     'assets/images/walk_park.png',
     'assets/images/dog_run_1.png',
     'assets/images/dog_run_2.png',
-    'assets/images/walk_bg_city.png',
+    'assets/images/walk_bg_city.webp',
   ];
   bool _precached = false;
 
@@ -211,8 +213,11 @@ class _Header extends StatelessWidget {
             _comma(paws),
             onTap: () => context.push('/charge'),
           ),
-          const SizedBox(width: 8),
-          WalletChip.bones(_comma(bones)),
+          // 마켓이 닫혀 있는 동안 뼈다귀는 감춘다(kBonesEnabled).
+          if (kBonesEnabled) ...[
+            const SizedBox(width: 8),
+            WalletChip.bones(_comma(bones)),
+          ],
           const SizedBox(width: 10),
           GestureDetector(
             onTap: () => context.go('/store'),
@@ -611,7 +616,12 @@ class _WalkingBody extends ConsumerWidget {
             fit: StackFit.expand,
             children: [
               // 배경은 강아지보다 빠르게 흘려 속도감을 준다(pace에 가중).
-              WalkScenery(speed: session.pace * 1.8),
+              // 지역(날씨 지역명) + 현재 시각으로 배경 16장 중 하나를 고른다.
+              WalkScenery(
+                background:
+                    WalkBackground.forPlaceAndTime(weather.place, DateTime.now()),
+                speed: session.pace * 1.8,
+              ),
               Positioned(
                 left: pad,
                 top: 14,
@@ -634,10 +644,10 @@ class _WalkingBody extends ConsumerWidget {
                   ],
                 ),
               ),
-              // 배경 그림의 흙길 위에 발이 닿도록 맞춘 위치.
+              // 배경 그림의 흙길(아래쪽)에 발이 닿도록 아래로 내린다.
               // 달리기는 전용 2프레임 스프라이트. 털색은 홈과 같은 방식으로 입힌다.
               Align(
-                alignment: const Alignment(0, 0.34),
+                alignment: const Alignment(0, 0.72),
                 child: Stack(
                   clipBehavior: Clip.none,
                   alignment: Alignment.bottomCenter,
@@ -646,7 +656,7 @@ class _WalkingBody extends ConsumerWidget {
                     Positioned(
                       right: 128,
                       bottom: 4,
-                      child: _RunDust(speed: session.pace),
+                      child: RunDust(speed: session.pace),
                     ),
                     // 느릴 땐 홈과 같은 걷기 모션(커스텀 외형·코스튬 그대로),
                     // 빨라지면 달리기 전용 스프라이트(아이템 착용)로 바뀐다.
@@ -738,89 +748,6 @@ class _WalkingBody extends ConsumerWidget {
 /// 달리는 강아지 뒤에서 피어나는 먼지. 세 덩이가 시차를 두고 뒤로 밀려나며
 /// 옅어진다. [speed]는 강아지·배경과 같은 배속이라 페이스가 빨라지면
 /// 먼지도 함께 빨라진다.
-class _RunDust extends StatefulWidget {
-  const _RunDust({required this.speed});
-
-  final double speed;
-
-  @override
-  State<_RunDust> createState() => _RunDustState();
-}
-
-class _RunDustState extends State<_RunDust>
-    with SingleTickerProviderStateMixin {
-  static const _puffW = 46.0;
-  static const _baseDuration = Duration(milliseconds: 900);
-
-  late final AnimationController _c = AnimationController(vsync: this);
-
-  @override
-  void initState() {
-    super.initState();
-    _applySpeed();
-  }
-
-  @override
-  void didUpdateWidget(covariant _RunDust old) {
-    super.didUpdateWidget(old);
-    if (widget.speed != old.speed) _applySpeed();
-  }
-
-  void _applySpeed() {
-    if (widget.speed <= 0) {
-      _c.stop();
-      return;
-    }
-    _c.duration = _baseDuration * (1 / widget.speed);
-    _c.repeat();
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // 멈춰 있으면 먼지도 안 난다.
-    if (widget.speed <= 0) return const SizedBox.shrink();
-
-    return SizedBox(
-      width: _puffW * 2.2,
-      height: _puffW * 54 / 102 + 10,
-      child: AnimatedBuilder(
-        animation: _c,
-        builder: (context, _) => Stack(
-          clipBehavior: Clip.none,
-          children: [
-            for (int i = 0; i < 3; i++)
-              () {
-                final t = (_c.value + i / 3) % 1.0;
-                return Positioned(
-                  // right가 커질수록 왼쪽 = 달려가는 방향 반대로 밀려난다.
-                  right: t * _puffW * 1.3,
-                  bottom: t * 6,
-                  child: Opacity(
-                    opacity: (1 - t) * 0.9,
-                    child: Transform.scale(
-                      scale: 0.6 + t * 0.6,
-                      child: Image.asset(
-                        'assets/images/dog_run_dust.png',
-                        width: _puffW,
-                        filterQuality: FilterQuality.none,
-                      ),
-                    ),
-                  ),
-                );
-              }(),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 /// 하루 상한(15,000보) 대비 진행 게이지. 눈금: 3천/6천/9천/1만2천/1만5천.
 class _GoalGauge extends StatelessWidget {
   const _GoalGauge({required this.steps});
@@ -971,7 +898,7 @@ class _ResultBody extends ConsumerWidget {
         ),
         const SizedBox(height: 20),
         Image.asset(
-          'assets/images/walk_result.png',
+          'assets/images/walk_result.webp',
           height: 190,
           fit: BoxFit.contain,
           filterQuality: FilterQuality.none,

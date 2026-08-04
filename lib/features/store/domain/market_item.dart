@@ -36,7 +36,7 @@ const List<MarketItem> kMarketItems = [
     subtitle: '네이처스베스트 · 100% 자연 원료 무첨가',
     bones: 5,
     badge: '베스트셀러',
-    asset: 'assets/market/food_grainfree.png',
+    asset: 'assets/market/food_grainfree.webp',
   ),
   MarketItem(
     id: 'chicken_jerky',

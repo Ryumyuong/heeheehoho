@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/feature_flags.dart';
 import '../../../core/theme/pixel_theme.dart';
 import '../../pet/application/pet_providers.dart';
 import '../../pet/domain/dog_appearance.dart';
@@ -170,7 +171,7 @@ class _HomePageState extends ConsumerState<HomePage>
                           child: SizedBox(
                             height: bgH,
                             child: Image.asset(
-                              'assets/images/room_bg.png',
+                              'assets/images/room_bg.webp',
                               fit: BoxFit.fitHeight,
                               filterQuality: FilterQuality.none,
                               // 이미지 로드 실패 시 벽 색으로 대체.
@@ -292,8 +293,11 @@ class _HomePageState extends ConsumerState<HomePage>
                     _comma(paws),
                     onTap: () => context.push('/charge'),
                   ),
-                  const SizedBox(width: 8),
-                  WalletChip.bones(_comma(bones)),
+                  // 마켓이 닫혀 있는 동안 뼈다귀는 감춘다(kBonesEnabled).
+                  if (kBonesEnabled) ...[
+                    const SizedBox(width: 8),
+                    WalletChip.bones(_comma(bones)),
+                  ],
                   const SizedBox(width: 12),
                   Image.asset(
                     'assets/icons/bell.png',

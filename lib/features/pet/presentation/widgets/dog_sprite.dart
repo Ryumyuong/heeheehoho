@@ -10,12 +10,12 @@ class DogFrames {
 
   /// 가만히 서 있을 때 (idle) 프레임. 현재는 기본 1장.
   static const List<String> idle = [
-    'assets/images/dog.png',
+    'assets/images/dog.webp',
   ];
 
   /// 걸을 때 (walk) 프레임. 앞다리/뒷다리 위치가 다른 2장을 번갈아 재생.
   static const List<String> walk = [
-    'assets/images/dog_walk_1.png',
+    'assets/images/dog_walk_1.webp',
     'assets/images/dog_walk_2.png',
   ];
 

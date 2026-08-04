@@ -28,10 +28,10 @@ class RunningDog extends StatelessWidget {
   // 스프라이트 박스(size) 대비 각 아이템의 중심 위치(0~1)와 폭 비율.
   // 달리는 프레임 기준(머리 오른쪽 위, 오른쪽을 봄).
   static const Map<String, Offset> _anchor = {
-    'crown': Offset(0.70, 0.12),
-    'sky_ribbon': Offset(0.80, 0.15),
-    'heart_glasses': Offset(0.75, 0.38),
-    'green_scarf': Offset(0.58, 0.56),
+    'crown': Offset(0.70, 0.18),
+    'sky_ribbon': Offset(0.80, 0.22),
+    'heart_glasses': Offset(0.75, 0.44),
+    'green_scarf': Offset(0.58, 0.60),
   };
   static const Map<String, double> _scale = {
     'crown': 0.26,

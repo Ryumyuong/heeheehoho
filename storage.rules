@@ -1,0 +1,22 @@
+rules_version = '2';
+
+// heeheehoho Firebase Storage 보안 규칙
+// - 로그인 없이 쓰는 앱이라, 커뮤니티 사진 경로만 열고 나머지는 기본 차단.
+// - Firebase 콘솔 → Storage → 규칙 탭에 붙여넣고 게시.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // 커뮤니티 사진 (community/…)
+    //  - read: 누구나 보기(피드 이미지 공개)
+    //  - write: 10MB 이하 이미지 파일만 업로드 허용
+    match /community/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.resource != null
+                   && request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // 그 외 모든 경로는 자동 차단(default deny).
+  }
+}
