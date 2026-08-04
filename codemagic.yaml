@@ -24,14 +24,9 @@ workflows:
       groups:
         # KMA_API_KEY 가 들어 있는 환경변수 그룹
         - heeheehoho_secrets
-      ios_signing:
-        # Codemagic 이 인증서·프로비저닝 프로파일을 자동 관리한다.
-        # 스크립트에서 `fetch-signing-files` 로 직접 받아오는 방법도 있지만,
-        # 그 경우 계정에 이미 있는 배포 인증서의 **개인키가 빌드 머신에 없어**
-        # "Cannot save Signing Certificates without certificate private key" 로
-        # 막힌다. 자동 서명은 Codemagic 이 개인키까지 만들어 보관하므로 이 문제가 없다.
-        distribution_type: app_store
-        bundle_identifier: com.heeheehoho.app
+      # `ios_signing:` 자동 서명은 쓰지 않는다. 프로파일을 못 만들면 스크립트가
+      # 돌기 전 준비 단계에서 "No matching profiles found" 로 죽어 로그가 없다.
+      # 아래 서명 단계에서 개인키부터 직접 만들어 인증서·프로파일까지 생성한다.
     scripts:
       - name: Flutter 설정(SPM 마이그레이션 끄기)
         script: |
@@ -55,11 +50,34 @@ workflows:
           echo "BUILD_NUMBER=$BUILD_NUMBER"
           echo "FLUTTER_BUILD_NUMBER=$BUILD_NUMBER" >> $CM_ENV
 
-      - name: 서명 프로파일 적용(export_options.plist 생성)
+      - name: 서명 인증서·프로파일 준비(없으면 생성)
         script: |
-          # 자동 서명(ios_signing)이 이미 인증서·프로파일을 내려받아 뒀다.
-          # 이 명령이 그걸 Xcode 프로젝트에 적용하고
-          # /Users/builder/export_options.plist 를 만든다.
+          set -e
+          keychain initialize
+
+          # 배포 인증서를 만들려면 그 인증서의 **개인키**가 있어야 한다.
+          # 계정에 이미 있는 인증서는 개인키가 여기 없어서 쓸 수 없으므로
+          # (그래서 "Cannot save Signing Certificates without certificate private key"),
+          # 환경변수로 키를 주지 않았으면 새로 만들어 쓴다.
+          #
+          # 주의: 키를 새로 만들면 매 빌드마다 새 배포 인증서가 발급된다.
+          # Apple 한도가 2개라, 첫 빌드가 성공하면 그때 만들어진 키를
+          # CERTIFICATE_PRIVATE_KEY 환경변수(Secure)로 등록해 재사용할 것.
+          if [ -z "$CERTIFICATE_PRIVATE_KEY" ]; then
+            echo "!! CERTIFICATE_PRIVATE_KEY 가 없어 새 개인키를 생성한다(인증서도 새로 발급됨)"
+            openssl genrsa -out /tmp/cert_key.pem 2048
+            CERT_KEY="@file:/tmp/cert_key.pem"
+          else
+            CERT_KEY="@env:CERTIFICATE_PRIVATE_KEY"
+          fi
+
+          # --create: 배포 인증서·번들 ID·프로비저닝 프로파일이 없으면 만든다.
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create \
+            --certificate-key "$CERT_KEY"
+
+          keychain add-certificates
           xcode-project use-profiles
           # 아래는 실패했을 때 원인을 바로 보기 위한 확인용 출력.
           echo "── 키체인의 서명 인증서 ──"
