@@ -28,6 +28,13 @@ workflows:
       # 스크립트가 돌기도 전에 "No matching profiles found" 로 죽어서 로그가
       # 남지 않는다. 아래 스크립트에서 --create 로 직접 만든다.
     scripts:
+      - name: Flutter 설정(SPM 마이그레이션 끄기)
+        script: |
+          # 켜져 있으면 `flutter build ipa` 도중에 Swift Package Manager 통합을
+          # 붙이며 project.pbxproj 를 다시 쓴다. 그 과정에서 바로 앞 단계의
+          # 수동 서명 설정이 날아가 "No valid code signing certificates" 로 죽는다.
+          flutter config --no-enable-swift-package-manager
+
       - name: Flutter 패키지 설치
         script: flutter pub get
 
@@ -56,6 +63,13 @@ workflows:
           # 받아온 프로파일을 Xcode 프로젝트에 적용하고
           # /Users/builder/export_options.plist 를 만든다.
           xcode-project use-profiles
+          # 아래는 실패했을 때 원인을 바로 보기 위한 확인용 출력.
+          echo "── 키체인의 서명 인증서 ──"
+          security find-identity -v -p codesigning || true
+          echo "── 내려받은 프로비저닝 프로파일 ──"
+          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles/" || true
+          echo "── export_options.plist ──"
+          cat /Users/builder/export_options.plist || true
 
       - name: iOS 빌드(IPA)
         script: |
