@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/pixel_theme.dart';
 import '../../../shared/widgets/design_scale.dart';
+import '../../pet/application/pet_providers.dart';
 
 double _hPad(BuildContext context) => DesignScale.scaled(context, 28);
 
 /// 미니게임 허브: 게임 목록.
-class GamesHubPage extends StatelessWidget {
+class GamesHubPage extends ConsumerWidget {
   const GamesHubPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final topPad = MediaQuery.of(context).padding.top;
     return Scaffold(
       backgroundColor: const Color(0xFFF8F6F2),
@@ -62,7 +64,7 @@ class GamesHubPage extends StatelessWidget {
                 const SizedBox(height: 14),
                 _GameCard(
                   emoji: '🐶',
-                  title: '강아지 얼굴 맞추기',
+                  title: '${ref.watch(petProvider)?.name ?? '세미'} 얼굴 맞추기',
                   desc: '떨어지는 얼굴 파츠를 제자리에 딱 맞게!',
                   gradient: const [Color(0xFF8FD3C4), Color(0xFF5FB89E)],
                   onTap: () => context.push('/games/face'),

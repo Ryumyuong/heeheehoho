@@ -2,10 +2,13 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/pixel_theme.dart';
 import '../../../shared/widgets/design_scale.dart';
+import '../../pet/application/pet_providers.dart';
 
 double _hPad(BuildContext context) => DesignScale.scaled(context, 28);
 
@@ -27,15 +30,29 @@ class _Slot {
 }
 
 // 크기(sizeFrac)는 시안(몸 176px 대비) 비율: 눈 13·볼 18·코입 29px.
+//
+// 가로는 얼굴 중심 기준 좌우 대칭. 온보딩 미리보기(`PartsDog`)와 같은 값이어야
+// 하니, 한쪽을 고치면 다른 쪽도 같이 맞출 것.
+//
+// **캔버스 한가운데(0.5)가 아니다** — dog_blank.png의 머리가 살짝 오른쪽에
+// 그려져 있어서(실루엣 무게중심 0.5025~0.5035), 0.5에 맞추면 파츠가 얼굴보다
+// 왼쪽으로 밀려 보인다. 원화의 눈 중점 0.5057·볼 중점 0.5068에 맞춘 값이다.
+const _faceCx = 0.506;
+const _eyeDx = 0.1307; // 눈 실측 간격의 절반
+const _cheekDx = 0.201; // 볼 간격의 절반
+
+// snout.png의 투명 여백을 잘라내(87x84 → 81x79) 앵커가 곧 그림 중심이 된다.
+// 여백이 빠진 만큼 그림이 커 보이므로 표시 크기를 0.165 → 0.165×81/87로 줄였다.
+const _snoutSize = 0.15362;
+
 const _slots = <_Slot>[
-  _Slot('assets/images/games/parts/eye_l.png', 0.37, 0.30, 0.08),
-  _Slot('assets/images/games/parts/eye_r.png', 0.63, 0.30, 0.08),
-  // 볼·코입은 원화(dog_full.png) 실측 위치에서 눈으로 보며 다듬은 값이다.
-  // (볼 실측 0.320/0.702 @0.398, 코입 실측 @0.4085 → 볼은 살짝 안쪽·아래, 코입은 아래)
-  // 온보딩 미리보기(`PartsDog`)와 같은 값 — 한쪽만 고치지 말 것.
-  _Slot('assets/images/games/parts/cheek_l.png', 0.310, 0.415, 0.102),
-  _Slot('assets/images/games/parts/cheek_r.png', 0.712, 0.415, 0.102),
-  _Slot('assets/images/games/parts/snout.png', 0.5085, 0.405, 0.165),
+  _Slot('assets/images/games/parts/eye_l.png', _faceCx - _eyeDx, 0.30, 0.08),
+  _Slot('assets/images/games/parts/eye_r.png', _faceCx + _eyeDx, 0.30, 0.08),
+  _Slot('assets/images/games/parts/cheek_l.png', _faceCx - _cheekDx, 0.415,
+      0.102),
+  _Slot('assets/images/games/parts/cheek_r.png', _faceCx + _cheekDx, 0.415,
+      0.102),
+  _Slot('assets/images/games/parts/snout.png', _faceCx, 0.4077, _snoutSize),
 ];
 
 double _slotY(_Slot s) => _dogTopFrac + s.fy * _dogHeightFrac;
@@ -59,14 +76,14 @@ class _Part {
 }
 
 /// 강아지 얼굴 맞추기: 8.15초 안에 랜덤 등장·낙하하는 파츠를 STOP으로 제자리에 놓는다.
-class FaceGamePage extends StatefulWidget {
+class FaceGamePage extends ConsumerStatefulWidget {
   const FaceGamePage({super.key});
 
   @override
-  State<FaceGamePage> createState() => _FaceGamePageState();
+  ConsumerState<FaceGamePage> createState() => _FaceGamePageState();
 }
 
-class _FaceGamePageState extends State<FaceGamePage> {
+class _FaceGamePageState extends ConsumerState<FaceGamePage> {
   final _rng = Random();
   _Phase _phase = _Phase.intro;
 
@@ -81,7 +98,34 @@ class _FaceGamePageState extends State<FaceGamePage> {
   void dispose() {
     _countTimer?.cancel();
     _ticker?.cancel();
+    _keyFocus.dispose();
     super.dispose();
+  }
+
+  /// 엔터로 조작하기 위한 포커스(키보드가 있는 웹·데스크톱에서만 의미 있다).
+  final _keyFocus = FocusNode();
+
+  /// 지금 단계에서 STOP 버튼이 하는 일과 똑같이 동작한다.
+  /// 카운트다운 중에는 버튼이 비활성이라 엔터도 먹지 않는다.
+  void _primaryAction() {
+    switch (_phase) {
+      case _Phase.intro:
+        _startCountdown();
+      case _Phase.countdown:
+        break;
+      case _Phase.playing:
+        _stopLowest();
+      case _Phase.done:
+        _restart();
+    }
+  }
+
+  void _onKey(KeyEvent e) {
+    if (e is! KeyDownEvent) return; // 누를 때 한 번만(꾹 누르면 반복 방지)
+    if (e.logicalKey == LogicalKeyboardKey.enter ||
+        e.logicalKey == LogicalKeyboardKey.numpadEnter) {
+      _primaryAction();
+    }
   }
 
   double _fallY(double p) => _fallTop + p.clamp(0.0, 1.0) * (0.95 - _fallTop);
@@ -194,19 +238,24 @@ class _FaceGamePageState extends State<FaceGamePage> {
   @override
   Widget build(BuildContext context) {
     final topPad = MediaQuery.of(context).padding.top;
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F6F2),
-      body: Column(
-        children: [
-          _header(context, topPad),
-          Expanded(
-            child: Padding(
-              padding:
-                  EdgeInsets.fromLTRB(_hPad(context), 14, _hPad(context), 20),
-              child: _playArea(),
+    return KeyboardListener(
+      focusNode: _keyFocus,
+      autofocus: true,
+      onKeyEvent: _onKey,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8F6F2),
+        body: Column(
+          children: [
+            _header(context, topPad),
+            Expanded(
+              child: Padding(
+                padding:
+                    EdgeInsets.fromLTRB(_hPad(context), 14, _hPad(context), 20),
+                child: _playArea(),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -228,7 +277,7 @@ class _FaceGamePageState extends State<FaceGamePage> {
                   color: Colors.white, size: 20),
             ),
             const SizedBox(width: 12),
-            Text('강아지 얼굴 맞추기',
+            Text('${ref.watch(petProvider)?.name ?? '세미'} 얼굴 맞추기',
                 style: AppText.body(
                     family: 'Pretendard',
                     size: 21,
@@ -254,15 +303,18 @@ class _FaceGamePageState extends State<FaceGamePage> {
           final dogTop = h * _dogTopFrac;
           double slotXpx(_Slot s) => dogLeft + s.fx * dogW;
 
-          Widget partAt(_Slot s, double yFrac, {double scale = 1.0}) {
+          Widget partAt(_Slot s, double yFrac,
+              {double scale = 1.0, double opacity = 1.0}) {
             final size = dogW * s.sizeFrac * scale;
+            Widget img = Image.asset(s.asset,
+                filterQuality: FilterQuality.none, fit: BoxFit.contain);
+            if (opacity < 1) img = Opacity(opacity: opacity, child: img);
             return Positioned(
               left: slotXpx(s) - size / 2,
               top: yFrac * h - size / 2,
               width: size,
               height: size,
-              child: Image.asset(s.asset,
-                  filterQuality: FilterQuality.none, fit: BoxFit.contain),
+              child: img,
             );
           }
 
@@ -289,22 +341,12 @@ class _FaceGamePageState extends State<FaceGamePage> {
               // 인트로: 완성 미리보기 — 파츠를 제자리에 크게(게임과 동일 크기).
               if (_phase == _Phase.intro)
                 for (final s in _slots) partAt(s, _slotY(s), scale: 1.4),
-              // 타겟 마커(플레이 중에만)
+              // 타겟 마커(플레이 중에만): 놓아야 할 파츠를 흐리게 깔아둔다.
+              // 떨어지는 파츠와 같은 크기·위치라 겹치면 딱 맞는 순간이 눈에 보인다.
+              // 놓은 뒤에도 그대로 두고 실제 파츠가 그 위에 겹쳐 그려진다.
               if (playing || counting)
                 for (final s in _slots)
-                  Positioned(
-                    left: slotXpx(s) - 11,
-                    top: _slotY(s) * h - 11,
-                    child: Container(
-                      width: 22,
-                      height: 22,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                            color: _coral.withValues(alpha: 0.45), width: 1.4),
-                      ),
-                    ),
-                  ),
+                  partAt(s, _slotY(s), scale: 1.4, opacity: 0.25),
               // 놓인 파츠(떨어질 때와 같은 크기로 — 작아지지 않게).
               if (playing || _phase == _Phase.done)
                 for (final p in _parts.where((p) => p.locked))

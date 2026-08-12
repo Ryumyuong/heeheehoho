@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/pixel_theme.dart';
@@ -29,30 +30,35 @@ class _TimerGamePageState extends State<TimerGamePage> {
   _Phase _phase = _Phase.ready;
   int _elapsedMs = 0;
 
-  // 배경 16장을 순서대로 이어 붙인다.
-  static const _bg16 = [
-    'assets/images/games/bg/bg_01.webp',
-    'assets/images/games/bg/bg_02.webp',
-    'assets/images/games/bg/bg_03.webp',
-    'assets/images/games/bg/bg_04.webp',
-    'assets/images/games/bg/bg_05.webp',
-    'assets/images/games/bg/bg_06.webp',
-    'assets/images/games/bg/bg_07.webp',
-    'assets/images/games/bg/bg_08.webp',
-    'assets/images/games/bg/bg_09.webp',
-    'assets/images/games/bg/bg_10.webp',
-    'assets/images/games/bg/bg_11.webp',
-    'assets/images/games/bg/bg_12.webp',
-    'assets/images/games/bg/bg_13.webp',
-    'assets/images/games/bg/bg_14.webp',
-    'assets/images/games/bg/bg_15.webp',
-    'assets/images/games/bg/bg_16.webp',
-  ];
+  // 배경은 부산 낮(광안대교) 한 장으로 고정하고 계속 반복시킨다.
+  // (bg_01~16은 지역 4곳 × 시간대 4단계 순서다. 부산은 bg_05~08, 그중 낮이 06.)
+  // 다른 배경으로 바꾸려면 여기 경로만 갈아끼우면 되고, 여러 장을 넣으면
+  // [LoopingScenery]가 순서대로 이어 붙여 흘려준다.
+  static const _bg = ['assets/images/games/bg/bg_06.webp'];
+
+  /// 엔터로 조작하기 위한 포커스(키보드가 있는 웹·데스크톱에서만 의미 있다).
+  final _keyFocus = FocusNode();
 
   @override
   void dispose() {
     _ticker?.cancel();
+    _keyFocus.dispose();
     super.dispose();
+  }
+
+  /// 지금 단계에서 화면 아래 버튼이 하는 일과 똑같이 동작한다.
+  void _primaryAction() => switch (_phase) {
+        _Phase.ready => _start(),
+        _Phase.running => _stop(),
+        _Phase.stopped => _reset(),
+      };
+
+  void _onKey(KeyEvent e) {
+    if (e is! KeyDownEvent) return; // 누를 때 한 번만(꾹 누르면 반복 방지)
+    if (e.logicalKey == LogicalKeyboardKey.enter ||
+        e.logicalKey == LogicalKeyboardKey.numpadEnter) {
+      _primaryAction();
+    }
   }
 
   void _start() {
@@ -106,10 +112,14 @@ class _TimerGamePageState extends State<TimerGamePage> {
     final running = _phase == _Phase.running;
     final secs = (_elapsedMs / 1000).toStringAsFixed(2);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F6F2),
-      body: Column(
-        children: [
+    return KeyboardListener(
+      focusNode: _keyFocus,
+      autofocus: true,
+      onKeyEvent: _onKey,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8F6F2),
+        body: Column(
+          children: [
           // 헤더
           Container(
             color: AppColors.primary,
@@ -151,7 +161,7 @@ class _TimerGamePageState extends State<TimerGamePage> {
                   fit: StackFit.expand,
                   children: [
                     // 16장 배경을 이어 붙여 스크롤(달릴 때만).
-                    LoopingScenery(images: _bg16, speed: running ? 3.6 : 0),
+                    LoopingScenery(images: _bg, speed: running ? 3.6 : 0),
                     // 달리는 강아지 + 먼지
                     Align(
                       alignment: const Alignment(0, 0.60),
@@ -213,10 +223,12 @@ class _TimerGamePageState extends State<TimerGamePage> {
                         ],
                       ),
                     ),
-                    // 결과(배경 안 상단)
+                    // 결과 — 맨 위에 붙이지 않고, 안내 멘트(-0.35) 위쪽 빈 공간의
+                    // 가운데쯤에 놓는다. 화면 높이에 비례해야 기기가 바뀌어도
+                    // 멘트와 겹치지 않는다.
                     if (_phase == _Phase.stopped)
                       Positioned(
-                        top: 18,
+                        top: h * 0.10,
                         left: 0,
                         right: 0,
                         child: Center(
@@ -264,7 +276,8 @@ class _TimerGamePageState extends State<TimerGamePage> {
               },
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }
