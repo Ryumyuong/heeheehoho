@@ -78,17 +78,25 @@ workflows:
           #   이름  CERTIFICATE_PRIVATE_KEY
           #   그룹  heeheehoho_secrets   ← 이 그룹이어야 워크플로가 가져온다
           #   Secure 체크
-          if [ -z "$CERTIFICATE_PRIVATE_KEY" ]; then
+          # PEM 을 그대로 환경변수에 넣으면 줄바꿈이 깨져 "is not valid" 로 죽는다.
+          # 그래서 base64 로 넣은 CERTIFICATE_PRIVATE_KEY_B64 를 우선 쓴다.
+          if [ -n "$CERTIFICATE_PRIVATE_KEY_B64" ]; then
+            echo "개인키: CERTIFICATE_PRIVATE_KEY_B64 (base64) 사용"
+            printf '%s' "$CERTIFICATE_PRIVATE_KEY_B64" | base64 -d > /tmp/cert_key.pem
+          elif [ -n "$CERTIFICATE_PRIVATE_KEY" ]; then
+            echo "개인키: CERTIFICATE_PRIVATE_KEY (PEM 원문) 사용"
+            printf '%s' "$CERTIFICATE_PRIVATE_KEY" > /tmp/cert_key.pem
+          else
             echo "=============================================================="
-            echo "!! CERTIFICATE_PRIVATE_KEY 가 비어 있다."
-            echo "   Codemagic → Environment variables 에서 값을 넣고,"
-            echo "   Variable group 을 'heeheehoho_secrets' 로 골랐는지 확인할 것."
-            echo "   (그룹이 다르면 이 워크플로에 주입되지 않는다)"
+            echo "!! 개인키 환경변수가 비어 있다."
+            echo "   Codemagic → Environment variables 에"
+            echo "     이름  CERTIFICATE_PRIVATE_KEY_B64"
+            echo "     값    keys/heeheehoho_cert_key.b64 파일 내용(한 줄)"
+            echo "     그룹  heeheehoho_secrets   ← 이 그룹이어야 주입된다"
+            echo "   Secure 체크 후 저장할 것."
             echo "=============================================================="
             exit 1
           fi
-          # 키가 실제로 도착했는지 로그로 확인한다(값은 찍지 않고 지문만).
-          printf '%s' "$CERTIFICATE_PRIVATE_KEY" > /tmp/cert_key.pem
           echo "── 받은 개인키 ──"
           echo "  줄 수: $(wc -l < /tmp/cert_key.pem)"
           openssl rsa -in /tmp/cert_key.pem -check -noout \
