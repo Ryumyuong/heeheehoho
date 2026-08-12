@@ -11,6 +11,20 @@ workflows:
     name: heeheehoho iOS (TestFlight)
     instance_type: mac_mini_m2
     max_build_duration: 60
+    # 태그를 붙여 푸시할 때만 빌드한다. 커밋마다 돌리면 맥 인스턴스 시간을
+    # 금방 쓰고, 아직 확인 안 끝난 변경이 테스터에게 나가버린다.
+    #
+    #   git tag v1.0.16
+    #   git push origin v1.0.16
+    #
+    # 주의: YAML만으로는 안 되고, Codemagic 웹 → 앱 설정 → Webhooks 에서
+    # GitHub 웹훅을 한 번 등록해야 실제로 트리거된다.
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: 'v*'
+          include: true
     integrations:
       # Codemagic → Teams → Integrations → App Store Connect 에 등록한
       # **API 키 이름**과 정확히 같아야 한다(아래는 예시 이름).
