@@ -71,6 +71,7 @@ class Pet {
     this.placements = const {},
     this.placementScales = const {},
     this.ownedItems = const [],
+    this.ownerNickname = '',
   });
 
   final String name;
@@ -104,6 +105,10 @@ class Pet {
   /// 스토어에서 구매해 보유한 아이템 id 목록. 홈 아이템창의 잠금 해제 기준.
   final List<String> ownedItems;
 
+  /// 주인(사람)의 닉네임. 커뮤니티에서 나를 가리키는 이름이라 **중복 불가**로
+  /// 온보딩에서 검사·예약한다. 강아지 이름([name])은 중복을 허용한다.
+  final String ownerNickname;
+
   Color get furColor => Color(furColorValue);
 
   Pet copyWith({
@@ -117,9 +122,11 @@ class Pet {
     Map<String, Offset>? placements,
     Map<String, double>? placementScales,
     List<String>? ownedItems,
+    String? ownerNickname,
   }) =>
       Pet(
         name: name ?? this.name,
+        ownerNickname: ownerNickname ?? this.ownerNickname,
         gender: gender,
         birthday: birthday,
         bodyShape: bodyShape,
@@ -140,6 +147,7 @@ class Pet {
 
   Map<String, dynamic> toMap() => {
         'name': name,
+        'ownerNickname': ownerNickname,
         'gender': gender.index,
         'birthday': birthday.millisecondsSinceEpoch,
         'bodyShape': bodyShape.index,
@@ -171,6 +179,8 @@ class Pet {
         : {...equipped, ...placements.keys}.toList();
     return Pet(
       name: m['name'] as String? ?? '몽치',
+      // 닉네임이 없던 구버전 저장본은 빈 값 → 프로필에서 강아지 이름으로 대체한다.
+      ownerNickname: m['ownerNickname'] as String? ?? '',
       gender: Gender.values[(m['gender'] as num?)?.toInt() ?? 0],
       birthday: DateTime.fromMillisecondsSinceEpoch(
         (m['birthday'] as num?)?.toInt() ??
@@ -235,6 +245,7 @@ class PetDraft {
     this.name = '',
     this.gender,
     this.birthday,
+    this.ownerNickname = '',
   });
 
   bool? hasExistingPet;
@@ -253,6 +264,9 @@ class PetDraft {
   Gender? gender;
   DateTime? birthday;
 
+  /// 주인(사람) 닉네임. 강아지 정보 다음 단계에서 받는다.
+  String ownerNickname;
+
   PetDraft copy() => PetDraft(
         hasExistingPet: hasExistingPet,
         photoPath: photoPath,
@@ -265,10 +279,12 @@ class PetDraft {
         name: name,
         gender: gender,
         birthday: birthday,
+        ownerNickname: ownerNickname,
       );
 
   Pet finalize() => Pet(
         name: name.isEmpty ? '몽치' : name,
+        ownerNickname: ownerNickname,
         gender: gender ?? Gender.princess,
         birthday: birthday ?? DateTime.now(),
         bodyShape: bodyShape,

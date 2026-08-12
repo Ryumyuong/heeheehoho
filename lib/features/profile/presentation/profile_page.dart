@@ -118,8 +118,12 @@ class ProfilePage extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // 프로필에는 주인 닉네임을 앞세운다. 닉네임을 받기 전에
+                        // 만든 저장본은 비어 있으므로 강아지 이름으로 대체한다.
                         Text(
-                          pet?.name ?? '네발 친구가 없어요',
+                          (pet?.ownerNickname.isNotEmpty ?? false)
+                              ? pet!.ownerNickname
+                              : (pet?.name ?? '네발 친구가 없어요'),
                           style: AppText.body(
                             size: 16,
                             weight: FontWeight.w800,
@@ -128,7 +132,10 @@ class ProfilePage extends ConsumerWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          isGuest ? '비회원으로 이용 중' : '회원',
+                          (pet?.ownerNickname.isNotEmpty ?? false)
+                              ? '${pet!.name}의 집사 · '
+                                  '${isGuest ? '비회원' : '회원'}'
+                              : (isGuest ? '비회원으로 이용 중' : '회원'),
                           style: AppText.body(
                             size: 12,
                             color: const Color(0xFF888888),

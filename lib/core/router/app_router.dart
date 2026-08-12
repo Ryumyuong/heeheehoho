@@ -7,6 +7,7 @@ import '../../features/onboarding/presentation/photo_page.dart';
 import '../../features/onboarding/presentation/scan_page.dart';
 import '../../features/onboarding/presentation/customize_page.dart';
 import '../../features/onboarding/presentation/info_page.dart';
+import '../../features/onboarding/presentation/nickname_page.dart';
 import '../../features/onboarding/presentation/signup_page.dart';
 import '../../features/community/domain/community_models.dart';
 import '../../features/community/presentation/community_page.dart';
@@ -33,6 +34,8 @@ final appRouter = GoRouter(
     GoRoute(path: '/scan', builder: (c, s) => const ScanPage()),
     GoRoute(path: '/customize', builder: (c, s) => const CustomizePage()),
     GoRoute(path: '/info', builder: (c, s) => const InfoPage()),
+    // 주인(사람) 닉네임. 강아지 정보 다음, 홈 진입 직전 단계.
+    GoRoute(path: '/nickname', builder: (c, s) => const NicknamePage()),
     GoRoute(path: '/signup', builder: (c, s) => const SignupPage()),
     // 발자국 충전(인앱결제). 셸 밖에 둬서 헤더 뒤로가기로 돌아온다.
     GoRoute(path: '/charge', builder: (c, s) => const ChargePage()),

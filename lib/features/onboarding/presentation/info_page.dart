@@ -25,11 +25,12 @@ class _InfoPageState extends ConsumerState<InfoPage> {
   DateTime? _birthday;
   bool _today = false;
 
-  // 이름 중복/형식 검사 상태.
-  Timer? _checkDebounce;
-  String? _nameError; // 보여줄 오류(중복·형식). 없으면 null.
-  bool _checking = false; // 서버 확인 중
-  bool _nameOk = false; // 형식·중복 모두 통과
+  // 이름 형식 검사 상태.
+  //
+  // 강아지 이름은 **중복을 허용**한다(같은 이름의 강아지가 여럿 있어도 자연스럽다).
+  // 중복 검사는 다음 단계에서 받는 주인 닉네임에만 건다.
+  String? _nameError; // 보여줄 형식 오류. 없으면 null.
+  bool _nameOk = false; // 형식 통과
 
   @override
   void initState() {
@@ -39,66 +40,26 @@ class _InfoPageState extends ConsumerState<InfoPage> {
     _gender = d.gender;
     _birthday = d.birthday;
     _nameCtrl.addListener(_onNameChanged);
-    if (_nameCtrl.text.trim().isNotEmpty) _scheduleCheck();
+    _onNameChanged();
   }
 
   @override
   void dispose() {
-    _checkDebounce?.cancel();
     _nameCtrl.dispose();
     super.dispose();
   }
 
   void _onNameChanged() {
-    setState(() {
-      _nameOk = false;
-      _nameError = null;
-    });
-    _scheduleCheck();
-  }
-
-  /// 타이핑이 멈추면(400ms) 형식·중복을 검사한다.
-  void _scheduleCheck() {
-    _checkDebounce?.cancel();
     final name = _nameCtrl.text.trim();
-    if (name.isEmpty) {
-      setState(() {
-        _checking = false;
-        _nameOk = false;
-        _nameError = null;
-      });
-      return;
-    }
-    // 형식 오류는 즉시.
-    final fmt = NicknameService.formatError(name);
-    if (fmt != null) {
-      setState(() {
-        _checking = false;
-        _nameOk = false;
-        _nameError = fmt;
-      });
-      return;
-    }
-    setState(() => _checking = true);
-    _checkDebounce = Timer(const Duration(milliseconds: 400), () async {
-      final svc = ref.read(nicknameServiceProvider);
-      bool taken = false;
-      try {
-        taken = await svc.isTaken(name);
-      } catch (_) {
-        taken = false; // 검사 실패 시 통과(온보딩 안 막음)
-      }
-      if (!mounted || _nameCtrl.text.trim() != name) return;
-      setState(() {
-        _checking = false;
-        _nameOk = !taken;
-        _nameError = taken ? '이미 사용중인 닉네임입니다' : null;
-      });
+    final fmt = name.isEmpty ? null : NicknameService.formatError(name);
+    setState(() {
+      _nameError = fmt;
+      _nameOk = name.isNotEmpty && fmt == null;
     });
   }
 
   bool get _hasGender => _gender != null;
-  // 이름은 형식·중복 검사를 통과해야(_nameOk) 다음 단계로 넘어간다.
+  // 이름은 형식 검사를 통과해야(_nameOk) 다음 단계로 넘어간다.
   bool get _canFinish => _nameOk && _hasGender && _birthday != null;
 
   int get _activeDot => !_nameOk ? 0 : (!_hasGender ? 1 : 2);
@@ -123,30 +84,15 @@ class _InfoPageState extends ConsumerState<InfoPage> {
   String _fmt(DateTime d) =>
       '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
 
-  Future<void> _finish() async {
-    final name = _nameCtrl.text.trim();
-    // 완성 직전 한 번 더 중복 확인(디바운스 사이에 남이 선점했을 수 있음).
-    final svc = ref.read(nicknameServiceProvider);
-    if (await svc.isTaken(name)) {
-      if (!mounted) return;
-      setState(() {
-        _nameOk = false;
-        _nameError = '이미 사용중인 닉네임입니다';
-      });
-      return;
-    }
-    await svc.reserve(name); // 이름 예약(등록)
-
-    final ctrl = ref.read(onboardingProvider.notifier);
-    ctrl.update((d) {
-      d.name = name;
+  /// 강아지 정보를 초안에 담고 주인 닉네임 단계로 넘어간다.
+  /// 펫 저장(complete)은 닉네임까지 받은 뒤 그 화면에서 한다.
+  void _finish() {
+    ref.read(onboardingProvider.notifier).update((d) {
+      d.name = _nameCtrl.text.trim();
       d.gender = _gender;
       d.birthday = _birthday;
     });
-    await ctrl.complete();
-    if (!mounted) return;
-    // 비회원도 회원가입 없이 바로 앱으로 진입.
-    context.go('/home');
+    context.push('/nickname');
   }
 
   @override
@@ -170,7 +116,7 @@ class _InfoPageState extends ConsumerState<InfoPage> {
                     const SizedBox(height: 22),
                     Center(
                       child: Text(
-                        '프로필에 사용할\n닉네임을 입력해주세요.',
+                        '네발친구의\n정보를 입력해 주세요',
                         textAlign: TextAlign.center,
                         style: AppText.pixel(size: 24, height: 1.6),
                       ),
@@ -188,18 +134,16 @@ class _InfoPageState extends ConsumerState<InfoPage> {
                       onSubmitted: (_) {},
                       error: _nameError != null,
                     ),
-                    // 중복·형식 오류 / 확인 중 안내.
-                    if (_nameError != null || _checking) ...[
+                    // 형식 오류 안내.
+                    if (_nameError != null) ...[
                       const SizedBox(height: 10),
                       Center(
                         child: Text(
-                          _nameError ?? '확인 중...',
+                          _nameError!,
                           style: AppText.body(
                             size: 13,
                             weight: FontWeight.w600,
-                            color: _nameError != null
-                                ? AppColors.coral
-                                : AppColors.subtle,
+                            color: AppColors.coral,
                           ),
                         ),
                       ),
@@ -290,7 +234,7 @@ class _InfoPageState extends ConsumerState<InfoPage> {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      Text('완성하기',
+                      Text('다음',
                           style: AppText.body(
                               size: 17,
                               color: Colors.white,
