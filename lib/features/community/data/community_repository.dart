@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,6 +27,10 @@ class CommunityRepository {
 
   static const _postsCol = 'community_posts';
 
+  /// 익명 로그인으로 받은 내 uid. 글·댓글에 함께 저장해 두면 보안 규칙이
+  /// "본인 것만 삭제"를 서버에서 직접 검증할 수 있다.
+  String? get _uid => FirebaseAuth.instance.currentUser?.uid;
+
   // ── 사진 업로드 ────────────────────────────────────────────────
   /// [path](예: community/posts/abc.jpg)에 이미지 바이트를 올리고 다운로드 URL을 돌려준다.
   Future<String> uploadImage(String path, Uint8List bytes) async {
@@ -50,6 +55,7 @@ class CommunityRepository {
     final doc = db.collection(_postsCol).doc();
     final url = await uploadImage('community/posts/${doc.id}.jpg', imageBytes);
     await doc.set({
+      'authorUid': _uid,
       'ownerName': author.owner,
       'petName': author.petName,
       'breed': author.breed,
@@ -106,6 +112,7 @@ class CommunityRepository {
     final db = _db;
     if (db == null) throw StateError('네트워크가 필요해요');
     await db.collection(_postsCol).doc(postId).collection('comments').add({
+      'authorUid': _uid,
       'ownerName': author.owner,
       'petName': author.petName,
       'emoji': author.emoji,

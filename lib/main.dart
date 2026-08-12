@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/gestures.dart';
@@ -50,6 +51,12 @@ Future<void> main() async {
       await Firebase.initializeApp();
     }
     firestore = FirebaseFirestore.instance;
+    // 익명 로그인. 화면에 로그인 UI는 없고, 기기마다 uid 하나가 생긴다.
+    // 이 uid 로 "내가 쓴 글·댓글"과 "내 이웃"을 서버가 직접 검증한다.
+    // 실패해도 앱은 그대로 쓰되, 쓰기 기능만 막힌다.
+    if (FirebaseAuth.instance.currentUser == null) {
+      await FirebaseAuth.instance.signInAnonymously();
+    }
   } catch (_) {
     firestore = null;
   }

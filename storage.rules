@@ -12,14 +12,16 @@ service firebase.storage {
     //  - create/update: 10MB 이하 이미지 파일만 업로드 허용
     //  - delete: 게시물 삭제 시 사진도 같이 지우기 위해 허용
     //
-    // ⚠️ Firestore 규칙과 같은 한계 — 로그인이 없어서 요청자를 확인할 수 없다.
-    //    익명 로그인을 붙이면 경로에 uid를 넣어 본인 것만 지우게 조일 수 있다.
+    // 익명 로그인을 한 사용자만 올리고 지울 수 있다. 경로에 uid 가 없어서
+    // "본인 사진만"까지는 못 가리지만, 로그인 없는 외부 요청은 막힌다.
+    // (게시물 문서 삭제는 Firestore 규칙이 uid 로 정확히 막는다.)
     match /community/{allPaths=**} {
       allow read: if true;
-      allow create, update: if request.resource != null
+      allow create, update: if request.auth != null
+                   && request.resource != null
                    && request.resource.size < 10 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
-      allow delete: if true;
+      allow delete: if request.auth != null;
     }
 
     // 그 외 모든 경로는 자동 차단(default deny).

@@ -51,6 +51,7 @@ dependencies:
   firebase_storage: ^13.4.5
   # 개인정보처리방침 등 외부 링크 열기.
   url_launcher: ^6.3.2
+  firebase_auth: ^6.5.7
 
 dev_dependencies:
   flutter_test:

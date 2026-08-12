@@ -9,6 +9,7 @@ import '../../../shared/widgets/wallet_chip.dart';
 import '../../pet/application/pet_providers.dart';
 import '../data/balance_vote_service.dart';
 import '../data/community_repository.dart';
+import '../data/user_directory.dart';
 import '../data/community_sample.dart';
 import '../domain/community_models.dart';
 import 'widgets/community_bits.dart';
@@ -724,8 +725,12 @@ class _NeighborTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 실제로 글을 올린 사람들만(샘플 없음).
-    final neighbors = ref.watch(neighborsProvider);
+    // 내가 추가한 이웃 + 최근 가입한 사람들(이미 이웃인 사람은 뺀다).
+    final mine = ref.watch(myNeighborsProvider).asData?.value ?? const [];
+    final mineIds = mine.map((n) => n.id).toSet();
+    final recent = (ref.watch(recentUsersProvider).asData?.value ?? const [])
+        .where((n) => !mineIds.contains(n.id))
+        .toList();
     return ListView(
       padding: EdgeInsets.fromLTRB(_hPad(context), 8, _hPad(context), 24),
       children: [
@@ -733,40 +738,135 @@ class _NeighborTab extends ConsumerWidget {
         const SizedBox(height: 12),
         const _NicknameSearchButton(),
         const SizedBox(height: 16),
-        // 이웃 목록 흰 박스(둥근 16, 테두리 #F0E8DE) + 헤더 + 행/구분선.
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFF0E8DE)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                child: Text(
-                  '이웃 ${neighbors.length}명',
-                  style: AppText.body(
-                    size: 12,
-                    weight: FontWeight.w700,
-                    color: const Color(0xFF888888),
-                  ),
-                ),
-              ),
-              if (neighbors.isEmpty)
-                const _EmptyNotice('아직 이웃이 없어요\n커뮤니티에 글을 올린 사람이 여기 모여요')
-              else
-                for (int i = 0; i < neighbors.length; i++) ...[
-                  if (i != 0)
-                    const Divider(
-                        height: 1, thickness: 1, color: Color(0xFFF5F0EA)),
-                  _NeighborRow(neighbor: neighbors[i]),
-                ],
-            ],
-          ),
+        _NeighborBox(
+          title: '이웃 ${mine.length}명',
+          empty: '아직 이웃이 없어요\n아래에서 이웃을 추가해보세요',
+          neighbors: mine,
+          added: true,
+        ),
+        const SizedBox(height: 16),
+        _NeighborBox(
+          title: '최근에 가입했어요',
+          empty: '아직 다른 가입자가 없어요',
+          neighbors: recent,
+          added: false,
         ),
       ],
+    );
+  }
+}
+
+/// 이웃 목록 흰 박스(둥근 16, 테두리 #F0E8DE) + 헤더 + 행/구분선.
+class _NeighborBox extends ConsumerWidget {
+  const _NeighborBox({
+    required this.title,
+    required this.empty,
+    required this.neighbors,
+    required this.added,
+  });
+
+  final String title;
+  final String empty;
+  final List<Neighbor> neighbors;
+
+  /// true면 이미 내 이웃 — 버튼이 "추가" 대신 "삭제"가 된다.
+  final bool added;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF0E8DE)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Text(
+              title,
+              style: AppText.body(
+                size: 12,
+                weight: FontWeight.w700,
+                color: const Color(0xFF888888),
+              ),
+            ),
+          ),
+          if (neighbors.isEmpty)
+            _EmptyNotice(empty)
+          else
+            for (int i = 0; i < neighbors.length; i++) ...[
+              if (i != 0)
+                const Divider(
+                    height: 1, thickness: 1, color: Color(0xFFF5F0EA)),
+              _NeighborRow(
+                neighbor: neighbors[i],
+                trailing: _AddNeighborButton(
+                  neighbor: neighbors[i],
+                  added: added,
+                ),
+              ),
+            ],
+        ],
+      ),
+    );
+  }
+}
+
+/// 이웃 추가/삭제 버튼. 서버(users/{내uid}/neighbors)에 바로 반영된다.
+class _AddNeighborButton extends ConsumerStatefulWidget {
+  const _AddNeighborButton({required this.neighbor, required this.added});
+  final Neighbor neighbor;
+  final bool added;
+
+  @override
+  ConsumerState<_AddNeighborButton> createState() =>
+      _AddNeighborButtonState();
+}
+
+class _AddNeighborButtonState extends ConsumerState<_AddNeighborButton> {
+  bool _busy = false;
+
+  Future<void> _toggle() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final dir = ref.read(userDirectoryProvider);
+    try {
+      if (widget.added) {
+        await dir.removeNeighbor(widget.neighbor.id);
+      } else {
+        await dir.addNeighbor(widget.neighbor);
+      }
+    } catch (_) {
+      if (mounted) _snack(context, '지금은 처리할 수 없어요');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final added = widget.added;
+    return GestureDetector(
+      onTap: _busy ? null : _toggle,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: added ? const Color(0xFFF3F3F3) : const Color(0xFFF4845F),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          added ? '이웃' : '추가',
+          style: AppText.body(
+            size: 12,
+            weight: FontWeight.w700,
+            color: added ? const Color(0xFF888888) : Colors.white,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -843,12 +943,14 @@ class _NicknameSearchDialogState
       setState(() => _results = null);
       return;
     }
-    final lower = q.toLowerCase();
     setState(() {
-      _results = ref
-          .read(neighborsProvider)
-          .where((n) => n.owner.toLowerCase().contains(lower))
-          .toList();
+      _results = const <Neighbor>[]; // 검색 중
+    });
+    ref.read(userDirectoryProvider).searchByNickname(q).then((r) {
+      if (!mounted) return;
+      setState(() => _results = r);
+    }).catchError((_) {
+      if (mounted) setState(() => _results = const <Neighbor>[]);
     });
   }
 
@@ -1081,9 +1183,12 @@ class _MyCard extends StatelessWidget {
 
 /// 이웃 한 줄(흰 박스 안). 탭 → 그 이웃 프로필.
 class _NeighborRow extends StatelessWidget {
-  const _NeighborRow({required this.neighbor, this.onTap});
+  const _NeighborRow({required this.neighbor, this.onTap, this.trailing});
   final Neighbor neighbor;
   final VoidCallback? onTap;
+
+  /// 우측에 붙일 것(이웃 추가/삭제 버튼). 없으면 상태 알약을 보여준다.
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -1120,11 +1225,12 @@ class _NeighborRow extends StatelessWidget {
                 ],
               ),
             ),
-            StatusPill(
-              status: neighbor.status,
-              background: const Color(0xFFF5F5F5),
-              bold: true,
-            ),
+            trailing ??
+                StatusPill(
+                  status: neighbor.status,
+                  background: const Color(0xFFF5F5F5),
+                  bold: true,
+                ),
           ],
         ),
       ),

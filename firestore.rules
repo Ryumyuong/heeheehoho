@@ -1,33 +1,46 @@
 rules_version = '2';
 
 // heeheehoho Firestore 보안 규칙
-// - 로그인(Firebase Auth) 없이 쓰는 앱이라, 아래 두 컬렉션만 공개하고
-//   나머지는 전부 기본 차단(default deny)한다.
-// - Firebase 콘솔 → Firestore Database → 규칙 탭에 그대로 붙여넣고 게시.
+//
+// 앱에 로그인 화면은 없지만 시작할 때 **익명 로그인**을 한다(main.dart).
+// 기기마다 uid 가 하나 생기고, 글·댓글·이웃에 그 uid 를 함께 저장하므로
+// "본인 것만 쓰기/지우기"를 서버가 직접 검증할 수 있다.
+//
+// Firebase 콘솔 → Firestore Database → 규칙 탭에 그대로 붙여넣고 게시.
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 주인(사람) 닉네임 중복 검사·예약
-    //  - read: 중복 확인
-    //  - create: 새 이름 예약만 허용(덮어쓰기·삭제 금지)
-    //
-    // 강아지 이름은 중복을 허용하므로 여기 오지 않는다.
-    // 옛 `nicknames` 컬렉션에는 예전 버전이 예약한 **강아지 이름**이 들어 있어
-    // 그대로 쓰면 흔한 강아지 이름을 사람 닉네임으로 못 쓰게 된다. 그래서
-    // 컬렉션을 분리했고, 옛 것은 아무도 읽지 않으니 콘솔에서 지워도 된다.
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // 주인(사람) 닉네임 예약 — 중복 방지용. 강아지 이름은 중복 허용이라 안 온다.
     match /owner_nicknames/{name} {
       allow read: if true;
-      allow create: if request.resource.data.keys().hasOnly(['name', 'createdAt'])
+      allow create: if signedIn()
+                    && request.resource.data.keys().hasOnly(['name', 'createdAt'])
                     && request.resource.data.name is string
                     && request.resource.data.name.size() >= 1
                     && request.resource.data.name.size() <= 20;
       allow update, delete: if false;
     }
 
-    // 커뮤니티 밸런스 게임 투표 집계 (community/balance_{gameId})
-    //  - read: 실시간 현황 구독
-    //  - create/update: votesA·votesB(0 이상 정수)만 허용
+    // 가입자 명부. 문서 ID = 그 사람의 uid.
+    //  - read: 이웃 목록의 "최근 가입"·닉네임 검색
+    //  - write: 본인 문서만
+    match /users/{uid} {
+      allow read: if true;
+      allow write: if signedIn() && request.auth.uid == uid;
+
+      // 내가 추가한 이웃. 내 문서 아래에만 쌓이므로 남이 못 건드린다.
+      match /neighbors/{otherUid} {
+        allow read: if true;
+        allow write: if signedIn() && request.auth.uid == uid;
+      }
+    }
+
+    // 커뮤니티 밸런스 게임 투표 집계
     match /community/{docId} {
       allow read: if true;
       allow create, update: if request.resource.data.keys().hasOnly(['votesA', 'votesB'])
@@ -39,45 +52,34 @@ service cloud.firestore {
     }
 
     // 커뮤니티 게시물 (사진은 Storage, 메타데이터는 여기)
-    //  - read: 피드 실시간 구독
-    //  - create: 필수 필드 타입 검증 후 작성 허용
-    //  - update: 금지(좋아요는 아직 로컬)
-    //  - delete: 본인 글 삭제용으로 허용
-    //
-    // ⚠️ 이 앱에는 로그인(Firebase Auth)이 없어서 **규칙이 요청자가 누구인지
-    //    알 수 없다.** 그래서 삭제 권한을 서버에서 검증하지 못하고, 앱이
-    //    "내 닉네임 == 글쓴이"일 때만 삭제 버튼을 띄우는 방식으로 막고 있다.
-    //    즉 앱을 거치지 않고 직접 요청하면 남의 글도 지울 수 있다.
-    //    막으려면 익명 로그인(Firebase Auth)을 붙이고 글에 authorUid를 저장한 뒤
-    //    `allow delete: if request.auth.uid == resource.data.authorUid`로 바꿀 것.
     match /community_posts/{postId} {
       allow read: if true;
-      allow create: if request.resource.data.text is string
+      allow create: if signedIn()
+                    && request.resource.data.authorUid == request.auth.uid
+                    && request.resource.data.text is string
                     && request.resource.data.imageUrl is string
                     && request.resource.data.createdAt is timestamp
                     && request.resource.data.likes is int
                     && request.resource.data.shares is int;
       allow update: if false;
-      allow delete: if true;
+      // 본인 글만 삭제. 예전에 uid 없이 올라간 글은 지울 수 없다.
+      allow delete: if signedIn()
+                    && resource.data.authorUid == request.auth.uid;
 
-      // 댓글 (community_posts/{postId}/comments/{commentId})
-      //  - read: 상세 화면에서 실시간 구독
-      //  - create: 글자와 작성 시각만
-      //  - delete: 본인 댓글 삭제용 (게시물과 같은 한계 — 로그인이 없어
-      //    서버가 요청자를 확인하지 못한다. 익명 로그인을 붙이면 조일 것)
+      // 댓글
       match /comments/{commentId} {
         allow read: if true;
-        allow create: if request.resource.data.text is string
+        allow create: if signedIn()
+                      && request.resource.data.authorUid == request.auth.uid
+                      && request.resource.data.text is string
                       && request.resource.data.text.size() >= 1
                       && request.resource.data.text.size() <= 500
                       && request.resource.data.createdAt is timestamp;
         allow update: if false;
-        allow delete: if true;
+        allow delete: if signedIn()
+                      && resource.data.authorUid == request.auth.uid;
       }
     }
-
-    // (미니게임 랭킹은 제거됨 — games/{gameId}/scores 규칙도 함께 삭제해
-    //  아무도 쓸 수 없게 둔다. 랭킹을 되살리면 규칙도 같이 되살릴 것)
 
     // 위에 명시되지 않은 모든 경로는 자동으로 차단된다(default deny).
   }

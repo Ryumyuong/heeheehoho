@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/pixel_theme.dart';
 import '../../pet/application/pet_providers.dart';
+import '../../community/data/user_directory.dart';
 import '../data/nickname_service.dart';
 import 'widgets/back_step_bar.dart';
 
@@ -118,7 +119,16 @@ class _NicknamePageState extends ConsumerState<NicknamePage> {
 
     final ctrl = ref.read(onboardingProvider.notifier);
     ctrl.update((d) => d.ownerNickname = name);
-    await ctrl.complete();
+    final pet = await ctrl.complete();
+    // 가입자 명부에 올린다(이웃 목록의 "최근 가입"과 닉네임 검색이 이걸 본다).
+    try {
+      await ref.read(userDirectoryProvider).upsertMe(
+            nickname: name,
+            petName: pet.name,
+          );
+    } catch (_) {
+      // 명부 등록에 실패해도 앱 진입은 막지 않는다.
+    }
     if (!mounted) return;
     // 비회원도 회원가입 없이 바로 앱으로 진입.
     context.go('/home');
