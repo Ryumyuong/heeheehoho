@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 
 /// 산책 중 배경. 같은 그림을 가로로 이어 붙여 흘려보내 "걷고 있음"을 표현한다.
 ///
+/// **한 칸 걸러 좌우로 뒤집는다(짝수=원본, 홀수=미러).** 같은 그림을 그냥
+/// 이어 붙이면 오른쪽 끝과 왼쪽 끝이 안 맞아 이음매에 세로 경계선이 보인다.
+/// 뒤집으면 맞닿는 두 가장자리가 같은 픽셀이라 선이 사라진다. 대신 한 바퀴가
+/// 한 칸이 아니라 **두 칸**이 된다.
+///
 /// 배경은 [WalkBackground]로 갈아끼운다. 지역마다 다른 그림을 쓰거나, 나중에
 /// AI 생성 이미지를 쓰게 되면 [WalkBackground.image]에 `NetworkImage`를 넣으면
 /// 되고 레이아웃은 그대로다.
@@ -94,7 +99,8 @@ class _WalkSceneryState extends State<WalkScenery>
       _c.stop();
       return;
     }
-    _c.duration = _baseDuration * (1 / widget.speed);
+    // 한 바퀴가 두 칸(원본+미러)이므로 주기도 두 배. 칸당 속도는 그대로다.
+    _c.duration = _baseDuration * (2 / widget.speed);
     // 진행 위상(_c.value)은 유지되므로 배속을 바꿔도 배경이 튀지 않는다.
     _c.repeat();
   }
@@ -114,14 +120,15 @@ class _WalkSceneryState extends State<WalkScenery>
           // 그림은 높이에 맞춰 세우고, 그만큼의 폭으로 가로로 이어 붙인다.
           final tileW = h * widget.background.aspect;
           if (tileW <= 0) return const SizedBox.shrink();
-          // 화면을 덮고 + 한 장이 더 있어야 스크롤이 끊기지 않는다(최소 3장).
-          final count = ((box.maxWidth / tileW).ceil() + 1).clamp(3, 8);
+          // 화면을 덮고 + 한 바퀴(두 칸)가 더 있어야 스크롤이 끊기지 않는다.
+          final count = ((box.maxWidth / tileW).ceil() + 2).clamp(4, 10);
 
           return AnimatedBuilder(
             animation: _c,
             builder: (context, child) => Transform.translate(
-              // 0 → -tileW 로 밀고 다시 0으로 돌아오므로 이음매가 안 보인다.
-              offset: Offset(-_c.value * tileW, 0),
+              // 0 → -(tileW*2) 로 밀고 다시 0으로 돌아온다. 두 칸이 한 바퀴라
+              // 되감아도 원본·미러 배치가 그대로 이어진다.
+              offset: Offset(-_c.value * tileW * 2, 0),
               child: child,
             ),
             // 이어붙인 타일이 화면보다 넓다. OverflowBox로 Row에 무한 폭을 줘야
@@ -133,20 +140,31 @@ class _WalkSceneryState extends State<WalkScenery>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   for (int i = 0; i < count; i++)
-                    Image(
-                      image: widget.background.image,
-                      width: tileW,
-                      height: h,
-                      // fill: 계산한 타일 폭에 정확히 맞춰야 장끼리 틈이 안 생긴다.
-                      fit: BoxFit.fill,
-                      filterQuality: FilterQuality.none, // 픽셀 선명도 유지
-                    ),
+                    _tile(tileW, h, mirrored: i.isOdd),
                 ],
               ),
             ),
           );
         },
       ),
+    );
+  }
+
+  /// 한 칸. [mirrored]면 좌우로 뒤집어 이음매를 없앤다.
+  Widget _tile(double w, double h, {required bool mirrored}) {
+    final img = Image(
+      image: widget.background.image,
+      width: w,
+      height: h,
+      // fill: 계산한 타일 폭에 정확히 맞춰야 장끼리 틈이 안 생긴다.
+      fit: BoxFit.fill,
+      filterQuality: FilterQuality.none, // 픽셀 선명도 유지
+    );
+    if (!mirrored) return img;
+    return Transform(
+      alignment: Alignment.center,
+      transform: Matrix4.identity()..scaleByDouble(-1.0, 1.0, 1.0, 1.0),
+      child: img,
     );
   }
 }

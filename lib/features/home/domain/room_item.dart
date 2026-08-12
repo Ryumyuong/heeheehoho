@@ -26,22 +26,20 @@ class RoomItem {
   final int price; // 스토어 가격(P)
 }
 
-/// 아이템 카탈로그 (image 13 기준). 픽셀 에셋은 `assets/items/{id}.png`.
+/// 아이템 카탈로그. 픽셀 에셋은 `assets/items/{id}.png`.
+///
+/// **그림이 있는 것만 넣는다.** 선글라스·후드티·천사날개, 장난감(테니스공·로프
+/// 등)처럼 가격만 정해둔 아이템은 그림이 들어오면 그때 추가한다. 회색
+/// "준비중" 칸으로 미리 채우면 스토어가 비어 보이는 것보다 더 나빠 보인다.
 const List<RoomItem> kRoomItems = [
-  // 가구
+  // ── 인테리어 ──
   RoomItem(
-    id: 'wood_table',
-    label: '우드테이블',
+    id: 'frame',
+    label: '액자',
     category: ItemCategory.furniture,
-    icon: Icons.table_restaurant,
-    asset: 'assets/items/wood_table.png',
-  ),
-  RoomItem(
-    id: 'stand_lamp',
-    label: '스탠드 조명',
-    category: ItemCategory.furniture,
-    icon: Icons.light,
-    asset: 'assets/items/stand_lamp.png',
+    icon: Icons.photo,
+    asset: 'assets/items/frame.png',
+    price: 150,
   ),
   RoomItem(
     id: 'plant',
@@ -49,28 +47,32 @@ const List<RoomItem> kRoomItems = [
     category: ItemCategory.furniture,
     icon: Icons.local_florist,
     asset: 'assets/items/plant.png',
+    price: 250,
   ),
   RoomItem(
-    id: 'frame',
-    label: '액자',
+    id: 'wood_table',
+    label: '우드테이블',
     category: ItemCategory.furniture,
-    icon: Icons.photo,
-    asset: 'assets/items/frame.png',
-  ),
-  // 웨어러블
-  RoomItem(
-    id: 'heart_glasses',
-    label: '하트안경',
-    category: ItemCategory.wearable,
-    icon: Icons.favorite,
-    asset: 'assets/items/heart_glasses.png',
+    icon: Icons.table_restaurant,
+    asset: 'assets/items/wood_table.png',
+    price: 500,
   ),
   RoomItem(
-    id: 'crown',
-    label: '왕관모자',
+    id: 'stand_lamp',
+    label: '스탠드 조명',
+    category: ItemCategory.furniture,
+    icon: Icons.light,
+    asset: 'assets/items/stand_lamp.png',
+    price: 700,
+  ),
+  // ── 착용 아이템 (가격 낮은 순) ──
+  RoomItem(
+    id: 'pink_ribbon',
+    label: '핑크리본',
     category: ItemCategory.wearable,
-    icon: Icons.workspace_premium,
-    asset: 'assets/items/crown.png',
+    icon: Icons.bookmark,
+    asset: 'assets/items/pink_ribbon.png',
+    price: 150,
   ),
   RoomItem(
     id: 'sky_ribbon',
@@ -79,6 +81,31 @@ const List<RoomItem> kRoomItems = [
     icon: Icons.bookmark,
     enabled: false,
     asset: 'assets/items/sky_ribbon.png',
+    price: 150,
+  ),
+  RoomItem(
+    id: 'straw_hat',
+    label: '밀짚모자',
+    category: ItemCategory.wearable,
+    icon: Icons.beach_access,
+    asset: 'assets/items/straw_hat.png',
+    price: 300,
+  ),
+  RoomItem(
+    id: 'round_glasses',
+    label: '동글안경',
+    category: ItemCategory.wearable,
+    icon: Icons.circle_outlined,
+    asset: 'assets/items/round_glasses.png',
+    price: 300,
+  ),
+  RoomItem(
+    id: 'heart_glasses',
+    label: '하트안경',
+    category: ItemCategory.wearable,
+    icon: Icons.favorite,
+    asset: 'assets/items/heart_glasses.png',
+    price: 400,
   ),
   RoomItem(
     id: 'green_scarf',
@@ -86,9 +113,23 @@ const List<RoomItem> kRoomItems = [
     category: ItemCategory.wearable,
     icon: Icons.dry_cleaning,
     asset: 'assets/items/green_scarf.png',
+    price: 600,
+  ),
+  RoomItem(
+    id: 'crown',
+    label: '왕관모자',
+    category: ItemCategory.wearable,
+    icon: Icons.workspace_premium,
+    asset: 'assets/items/crown.png',
+    price: 1200,
   ),
 ];
 
 /// 머리에 쓰는 웨어러블 — 이 중 하나만 착용할 수 있다.
 /// 홈(실제 착용)과 스토어(입어보기)가 같은 규칙을 쓰도록 여기서 한 번만 정의한다.
-const Set<String> kHeadSlotItems = {'crown', 'sky_ribbon'};
+const Set<String> kHeadSlotItems = {
+  'crown',
+  'sky_ribbon',
+  'pink_ribbon',
+  'straw_hat',
+};

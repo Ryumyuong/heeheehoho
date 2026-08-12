@@ -52,6 +52,9 @@ class AppColors {
     Color(0xFF8E8880), // 그레이
     Color(0xFF9BA3A8), // 애쉬블루
     Color(0xFF6E6963), // 차콜
+    // 순백. 털색은 곱셈 합성이라 이 값만 원본 그림을 그대로 남긴다
+    // (기존 '화이트' 0xFFF2F0EB 는 5%쯤 어두워져 아이보리에 가깝다).
+    Color(0xFFFFFFFF), // 흰색
   ];
 }
 

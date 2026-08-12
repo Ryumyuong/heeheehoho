@@ -136,8 +136,11 @@ class _DogWithWearablesState extends State<DogWithWearables>
   // 박스 안에서 조금 작아지고 아래로 내려갔다. 그만큼 앵커도 같이 옮겼다.
   static const Map<String, Offset> _wearAnchor = {
     'crown': Offset(15, -47), // 머리 위 중앙
+    'straw_hat': Offset(15, -44), // 챙이 넓어 왕관보다 살짝 아래
     'heart_glasses': Offset(15, -15), // 눈 위치
+    'round_glasses': Offset(15, -15), // 하트안경과 같은 눈 위치
     'sky_ribbon': Offset(25, -41), // 머리 위, 왕관보다 약간 오른쪽
+    'pink_ribbon': Offset(25, -41), // 하늘색 리본과 같은 자리
     // 턱 바로 아래 목. 가슴까지 내리면 스카프가 아니라 앞치마처럼 보인다.
     'green_scarf': Offset(17, 17),
   };
@@ -146,17 +149,23 @@ class _DogWithWearablesState extends State<DogWithWearables>
   // 값이 안 맞으면 이 숫자만 조정하면 된다.
   static const Map<String, Offset> _wearAnchorWalk = {
     'crown': Offset(13, -50),
+    'straw_hat': Offset(13, -47),
     'heart_glasses': Offset(14, -22), // 눈에 딱 맞게
+    'round_glasses': Offset(14, -22),
     'sky_ribbon': Offset(25, -44),
+    'pink_ribbon': Offset(25, -44),
     'green_scarf': Offset(10, 14),
   };
 
-  // 원본 비율 유지한 표시 크기.
+  // 원본 비율 유지한 표시 크기(그림의 알파 영역 가로:세로 비를 따른다).
   static const Map<String, Size> _wearSize = {
     'crown': Size(50, 46),
+    'straw_hat': Size(56, 35), // 136x85
     'heart_glasses': Size(54, 27),
+    'round_glasses': Size(54, 21), // 117x45
     'sky_ribbon': Size(42, 27),
-    // 새 반다나 픽셀(20x12 그리드) 비율에 맞춘 크기.
-    'green_scarf': Size(52, 31),
+    'pink_ribbon': Size(44, 30), // 99x67
+    // 새 반다나 픽셀 비율에 맞춘 크기(113x70).
+    'green_scarf': Size(52, 32),
   };
 }
