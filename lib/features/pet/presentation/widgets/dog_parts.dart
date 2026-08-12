@@ -1,84 +1,130 @@
 import 'package:flutter/material.dart';
 
-import '../../domain/dog_appearance.dart';
 import '../../domain/pet.dart';
 import 'dog_sprite.dart';
 
 /// 강아지 자세. 프레임 세트를 고르는 기준.
 enum DogPose { idle, walk }
 
-/// 겹쳐 그리는 얼굴 부위. 나열 순서가 곧 그리는 순서(아래 → 위).
-enum FacePart { mouth, nose, eyes }
+/// 얼굴 파츠 한 벌의 배치.
+///
+/// 값은 모두 **몸통 캔버스(정사각) 대비 비율**이라 표시 크기와 무관하다.
+/// 프레임마다 머리가 위아래로 움직이므로 배치도 프레임별로 따로 잡는다.
+class FaceLayout {
+  const FaceLayout({
+    required this.eyeL,
+    required this.eyeR,
+    required this.snout,
+    required this.cheekL,
+    required this.cheekR,
+  });
+
+  final Offset eyeL;
+  final Offset eyeR;
+  final Offset snout;
+  final Offset cheekL;
+  final Offset cheekR;
+}
 
 /// 부위별 그림(레이어)이 어디 있는지 아는 카탈로그.
 ///
-/// 강아지를 "몸통 + 얼굴 부위 + (기존) 웨어러블"의 레이어로 합성하기 위한 기초.
-/// 지금은 각 레이어가 PNG지만, 나중에 픽셀(코드)로 그리도록 업그레이드할 때
-/// 화면 코드는 그대로 두고 이 파일과 [LayeredDog]의 레이어 생성 부분만 바꾸면 된다.
+/// 강아지 = 얼굴 없는 몸통 + 얼굴 파츠 + (바깥에서) 웨어러블.
+/// 얼굴 파츠는 온보딩 미리보기([PartsDog])·얼굴 맞추기 게임과 **같은 그림**을 써서,
+/// 온보딩에서 만든 얼굴이 홈·미니룸에도 그대로 나온다.
 ///
-/// ## 부위 PNG를 넣을 때
-/// 1. 아래 [layered]를 true로 바꾼다.
-/// 2. 이 경로 규칙대로 파일을 넣는다(pubspec에 `assets/dog/` 폴더 등록 필요).
-///    - 몸통: `assets/dog/body/{몸모양}_{자세}_{프레임번호}.png` (얼굴 없는 몸통만)
-///      예) `round_idle_1.png`, `round_walk_1.png`, `round_walk_2.png`
-///    - 얼굴: `assets/dog/face/{부위}_{스타일}.png`
-///      예) `eyes_round.png`, `nose_heart.png`, `mouth_tongue.png`
-/// 3. [faceAnchor] / [faceSize] 값을 실제 그림에 맞게 미세 조정한다.
+/// ## 몸통 에셋
+/// `assets/dog/body/*.png` — 기존 통짜 스프라이트에서 눈·코·입·볼 픽셀을 지우고
+/// 주변 털색으로 메운 것. 전부 532x532 정사각이라 아래 비율값이 그대로 맞는다.
 class DogParts {
   DogParts._();
 
-  /// 부위별 PNG가 준비됐는지. false인 동안은 얼굴이 이미 그려진 통짜
-  /// 스프라이트([DogFrames])로 폴백하고, 얼굴 레이어는 그리지 않는다.
-  static const bool layered = false;
+  /// 부위별 PNG가 준비됐는지. false면 얼굴이 그려진 통짜 스프라이트로 폴백한다.
+  static const bool layered = true;
 
   /// 몸통 레이어에 털색을 곱해(modulate) 입힐지 여부.
   ///
-  /// 통짜 스프라이트에도 쓸 수 있다. 곱셈이라 검은 눈·코는 검은색으로 남고
-  /// 크림색 털만 물들기 때문. 다만 원본보다 밝아질 수는 없다.
+  /// 곱셈이라 원본보다 밝아지지는 않는다. 얼굴 파츠에는 입히지 않는다 —
+  /// 검은 눈·코와 분홍 볼까지 물들면 색이 탁해진다.
   static const bool tintFur = true;
 
-  /// 자세별 프레임 장수(레이어 모드에서 기대하는 파일 수).
-  static const Map<DogPose, int> _frameCount = {
-    DogPose.idle: 1,
-    DogPose.walk: 2,
-  };
+  static const List<String> _idleBody = ['assets/dog/body/idle_1.png'];
+  static const List<String> _walkBody = [
+    'assets/dog/body/walk_1.png',
+    'assets/dog/body/walk_2.png',
+  ];
 
-  /// 몸통 프레임 경로들. 레이어 준비 전에는 기존 통짜 스프라이트를 그대로 쓴다.
+  /// 몸통 프레임 경로들.
+  ///
+  /// [shape]는 아직 그림이 한 벌뿐이라 쓰지 않는다. 몸 모양별 아트가 들어오면
+  /// 여기서 갈라주면 되고, 화면 코드는 손댈 필요 없다.
   static List<String> bodyFrames(BodyShape shape, DogPose pose) {
     if (!layered) {
       return pose == DogPose.walk ? DogFrames.walk : DogFrames.idle;
     }
-    final n = _frameCount[pose] ?? 1;
-    return [
-      for (var i = 1; i <= n; i++)
-        'assets/dog/body/${shape.name}_${pose.name}_$i.png',
-    ];
+    return pose == DogPose.walk ? _walkBody : _idleBody;
   }
 
-  /// 얼굴 부위 경로. 레이어 준비 전(= 통짜 스프라이트에 얼굴이 포함)에는 null.
-  static String? faceAsset(FacePart part, DogAppearance a) {
+  /// 프레임별 얼굴 배치. 원본 스프라이트에서 지운 눈·코입·볼 픽셀 덩어리의
+  /// 무게중심을 그대로 쓴 값이라, 얹으면 원래 얼굴 자리에 정확히 들어간다.
+  static const Map<DogPose, List<FaceLayout>> _layouts = {
+    DogPose.idle: [
+      FaceLayout(
+        eyeL: Offset(0.5248, 0.3788),
+        eyeR: Offset(0.6985, 0.3790),
+        snout: Offset(0.6110, 0.4741),
+        cheekL: Offset(0.4765, 0.4531),
+        cheekR: Offset(0.7384, 0.4495),
+      ),
+    ],
+    DogPose.walk: [
+      FaceLayout(
+        eyeL: Offset(0.5218, 0.3402),
+        eyeR: Offset(0.6940, 0.3400),
+        snout: Offset(0.6090, 0.4389),
+        cheekL: Offset(0.4765, 0.4178),
+        cheekR: Offset(0.7391, 0.4177),
+      ),
+      FaceLayout(
+        eyeL: Offset(0.5225, 0.3509),
+        eyeR: Offset(0.6940, 0.3511),
+        snout: Offset(0.6105, 0.4511),
+        cheekL: Offset(0.4776, 0.4289),
+        cheekR: Offset(0.7396, 0.4291),
+      ),
+    ],
+  };
+
+  /// [pose]의 [frame]번째 얼굴 배치. 레이어 모드가 아니면 null.
+  static FaceLayout? layoutFor(DogPose pose, int frame) {
     if (!layered) return null;
-    final style = switch (part) {
-      FacePart.eyes => a.eyeStyle.name,
-      FacePart.nose => a.noseStyle.name,
-      FacePart.mouth => a.mouthStyle.name,
-    };
-    return 'assets/dog/face/${part.name}_$style.png';
+    final list = _layouts[pose];
+    if (list == null || list.isEmpty) return null;
+    return list[frame % list.length];
   }
 
-  /// 얼굴 부위의 중심 위치. 강아지 박스 크기에 대한 비율(0~1)이라 크기와 무관.
-  /// 현재 그림 기준 머리가 오른쪽에 치우쳐 있어 x가 0.5보다 크다.
-  /// (실제 부위 PNG가 들어오면 눈으로 보며 조정할 값)
-  static const Map<FacePart, Offset> faceAnchor = {
-    FacePart.eyes: Offset(0.63, 0.36),
-    FacePart.nose: Offset(0.63, 0.44),
-    FacePart.mouth: Offset(0.63, 0.50),
-  };
+  static const String _faceDir = 'assets/dog/face';
 
-  /// 얼굴 부위의 표시 크기. 역시 박스 대비 비율(가로, 세로).
-  static const Map<FacePart, Size> faceSize = {
-    FacePart.eyes: Size(0.34, 0.10),
-    FacePart.nose: Size(0.10, 0.08),
-    FacePart.mouth: Size(0.18, 0.12),
-  };
+  static const String eyeLAsset = '$_faceDir/eye_l.png';
+  static const String eyeRAsset = '$_faceDir/eye_r.png';
+  static const String cheekLAsset = '$_faceDir/cheek_l.png';
+  static const String cheekRAsset = '$_faceDir/cheek_r.png';
+
+  /// 코와 입이 한 장에 같이 그려져 있어 지금은 한 종류뿐이다.
+  /// `snout_tongue.png` 같은 변형 아트가 들어오면 여기에 경로만 넣으면
+  /// [MouthStyle]·[NoseStyle] 선택이 바로 그림에 반영된다.
+  static const Map<MouthStyle, String> _snoutVariants = {};
+
+  static String snoutAsset(MouthStyle mouth) =>
+      _snoutVariants[mouth] ?? '$_faceDir/snout.png';
+
+  /// 눈 파츠. 변형 아트가 들어오면 마찬가지로 여기에 넣는다.
+  /// 없는 동안 [EyeStyle.sleepy]는 눈을 눌러서, [EyeStyle.sparkle]은 반짝임을
+  /// 덧붙여 표현한다([LayeredDog] 참고) — 온보딩 미리보기와 같은 방식이다.
+  static const Map<EyeStyle, String> eyeVariants = {};
+
+  /// 파츠 표시 크기(캔버스 대비 비율). 원본 얼굴 픽셀의 실측 크기에 맞췄고,
+  /// 세로는 잘라낸 파츠 PNG의 원본 비율을 그대로 따른다.
+  static const Size eyeSize = Size(29 / 532, 29 / 532 * 42 / 39);
+  static const Size snoutSize = Size(72 / 532, 72 / 532 * 79 / 81);
+  static const Size cheekSize = Size(38 / 532, 38 / 532);
 }

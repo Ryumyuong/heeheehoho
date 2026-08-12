@@ -40,6 +40,8 @@ class DogSprite extends StatefulWidget {
     this.fps = 6,
     this.flip = false,
     this.breatheWhenSingle = true,
+    this.tint,
+    this.overlayBuilder,
   });
 
   final List<String> frames;
@@ -47,6 +49,14 @@ class DogSprite extends StatefulWidget {
   final double fps;
   final bool flip;
   final bool breatheWhenSingle;
+
+  /// 프레임 그림에만 곱해(modulate) 입힐 색. 위에 얹는 [overlayBuilder]에는
+  /// 적용되지 않는다(얼굴 파츠까지 물들이지 않으려고 여기서 나눠 칠한다).
+  final Color? tint;
+
+  /// 지금 그리는 프레임 번호를 받아 그 위에 얹을 것들을 돌려준다.
+  /// 프레임과 같은 컨트롤러를 쓰므로 몸통과 항상 붙어 움직인다.
+  final List<Widget> Function(int frameIndex)? overlayBuilder;
 
   @override
   State<DogSprite> createState() => _DogSpriteState();
@@ -98,10 +108,10 @@ class _DogSpriteState extends State<DogSprite>
         Widget img;
         double scaleY = 1.0;
         double dy = 0.0;
+        int idx = 0;
 
         if (multiFrame) {
-          final idx =
-              (t * widget.frames.length).floor() % widget.frames.length;
+          idx = (t * widget.frames.length).floor() % widget.frames.length;
           img = _frame(widget.frames[idx]);
         } else {
           img = _frame(widget.frames.first);
@@ -111,6 +121,19 @@ class _DogSpriteState extends State<DogSprite>
             scaleY = 1.0 + 0.035 * s;
             dy = -2.0 * s;
           }
+        }
+
+        // 얼굴 파츠는 몸통 위에 같은 프레임 기준으로 얹는다.
+        final overlay = widget.overlayBuilder?.call(idx) ?? const <Widget>[];
+        if (overlay.isNotEmpty) {
+          img = SizedBox(
+            width: widget.size,
+            height: widget.size,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [Positioned.fill(child: img), ...overlay],
+            ),
+          );
         }
 
         return Transform.translate(
@@ -126,12 +149,20 @@ class _DogSpriteState extends State<DogSprite>
     );
   }
 
-  Widget _frame(String path) => Image.asset(
-        path,
-        width: widget.size,
-        height: widget.size,
-        fit: BoxFit.contain,
-        filterQuality: FilterQuality.none,
-        gaplessPlayback: true,
-      );
+  Widget _frame(String path) {
+    final Widget img = Image.asset(
+      path,
+      width: widget.size,
+      height: widget.size,
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.none,
+      gaplessPlayback: true,
+    );
+    final tint = widget.tint;
+    if (tint == null) return img;
+    return ColorFiltered(
+      colorFilter: ColorFilter.mode(tint, BlendMode.modulate),
+      child: img,
+    );
+  }
 }

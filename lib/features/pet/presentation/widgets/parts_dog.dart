@@ -38,18 +38,30 @@ class PartsDog extends StatelessWidget {
   /// dog_full 과 빈 얼굴 dog_blank 의 차이 = 파츠 픽셀, 그 덩어리들의 중심·폭).
   /// 그래서 이대로 얹으면 완성본과 거의 같은 얼굴이 된다.
   ///
-  /// 볼과 코입은 예외로 실측값에서 눈으로 보며 다듬었다(볼 실측 0.320/0.702 @0.398,
-  /// 코입 실측 @0.4085 → 볼은 살짝 안쪽·아래, 코입은 아래). 얼굴 맞추기 게임
-  /// (`face_game_page.dart`의 `_slots`)과 같은 값이어야 하니, 한쪽을 고치면
-  /// 다른 쪽도 같이 맞출 것.
-  static const _eyeL = Offset(0.378, 0.302);
-  static const _eyeR = Offset(0.639, 0.302);
-  static const _cheekL = Offset(0.310, 0.415);
-  static const _cheekR = Offset(0.712, 0.415);
-  static const _snout = Offset(0.5085, 0.405);
+  /// 가로는 [_faceCx]를 기준으로 좌우 대칭이다.
+  /// 세로는 실측값에서 눈으로 보며 다듬은 값을 유지한다(볼·코입은 조금 아래).
+  ///
+  /// 얼굴 맞추기 게임(`face_game_page.dart`의 `_slots`)과 같은 값이어야 하니,
+  /// 한쪽을 고치면 다른 쪽도 같이 맞출 것.
+  ///
+  /// 얼굴 중심. **캔버스 한가운데(0.5)가 아니다** — dog_blank.png의 머리가
+  /// 살짝 오른쪽에 그려져 있어서(실루엣 무게중심 0.5025~0.5035), 0.5에 맞추면
+  /// 파츠가 얼굴보다 왼쪽으로 밀려 보인다. 원화(dog_full.png)의 눈 중점
+  /// 0.5057·볼 중점 0.5068에 맞춘 값이다.
+  static const _faceCx = 0.506;
+  static const _eyeDx = 0.1307; // 눈 실측 간격의 절반
+  static const _cheekDx = 0.201; // 볼 간격의 절반
+
+  static const _eyeL = Offset(_faceCx - _eyeDx, 0.302);
+  static const _eyeR = Offset(_faceCx + _eyeDx, 0.302);
+  static const _cheekL = Offset(_faceCx - _cheekDx, 0.415);
+  static const _cheekR = Offset(_faceCx + _cheekDx, 0.415);
+  static const _snout = Offset(_faceCx, 0.4077);
   static const _eyeSize = 0.074;
   static const _cheekSize = 0.102;
-  static const _snoutSize = 0.165;
+  // snout.png의 투명 여백을 잘라내(87x84 → 81x79) 앵커가 곧 그림 중심이 된다.
+  // 여백이 빠진 만큼 그림이 커 보이므로 표시 크기를 0.165 → 0.165×81/87로 줄였다.
+  static const _snoutSize = 0.15362;
 
   /// 입 모양별 코·입 파츠. 코와 입이 `snout.png` 한 장에 같이 그려져 있어
   /// 지금은 한 종류뿐이다. `snout_tongue.png` 같은 변형 아트가 들어오면

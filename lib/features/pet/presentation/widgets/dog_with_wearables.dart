@@ -131,12 +131,15 @@ class _DogWithWearablesState extends State<DogWithWearables>
 
   // 강아지 중심(75,75) 기준 웨어러블 오프셋.
   // 안경=눈 / 왕관=머리 위 중앙 / 리본=머리 약간 오른쪽 / 스카프=목~가슴.
+  //
+  // dog.webp를 걷기 프레임과 같은 532 캔버스로 다시 채우면서 idle 강아지가
+  // 박스 안에서 조금 작아지고 아래로 내려갔다. 그만큼 앵커도 같이 옮겼다.
   static const Map<String, Offset> _wearAnchor = {
-    'crown': Offset(15, -56), // 머리 위 중앙
-    'heart_glasses': Offset(15, -21), // 눈 위치
-    'sky_ribbon': Offset(27, -50), // 머리 위, 왕관보다 약간 오른쪽
+    'crown': Offset(15, -47), // 머리 위 중앙
+    'heart_glasses': Offset(15, -15), // 눈 위치
+    'sky_ribbon': Offset(25, -41), // 머리 위, 왕관보다 약간 오른쪽
     // 턱 바로 아래 목. 가슴까지 내리면 스카프가 아니라 앞치마처럼 보인다.
-    'green_scarf': Offset(18, 16),
+    'green_scarf': Offset(17, 17),
   };
 
   // 걷기(새 비숑) 프레임용 앵커. 비숑은 머리가 가운데라 dx를 0 근처로 모은다.
