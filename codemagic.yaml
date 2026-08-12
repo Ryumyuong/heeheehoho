@@ -70,20 +70,32 @@ workflows:
           keychain initialize
 
           # 배포 인증서를 만들려면 그 인증서의 **개인키**가 있어야 한다.
-          # 계정에 이미 있는 인증서는 개인키가 여기 없어서 쓸 수 없으므로
-          # (그래서 "Cannot save Signing Certificates without certificate private key"),
-          # 환경변수로 키를 주지 않았으면 새로 만들어 쓴다.
+          # 키를 빌드마다 새로 만들면 그때마다 새 배포 인증서를 발급하려 하고,
+          # Apple 한도가 2개라 곧 409(You already have a current Distribution
+          # certificate)로 죽는다. 그래서 키는 반드시 환경변수로 고정한다.
           #
-          # 주의: 키를 새로 만들면 매 빌드마다 새 배포 인증서가 발급된다.
-          # Apple 한도가 2개라, 첫 빌드가 성공하면 그때 만들어진 키를
-          # CERTIFICATE_PRIVATE_KEY 환경변수(Secure)로 등록해 재사용할 것.
+          # 등록 위치: Codemagic → 앱 → Environment variables
+          #   이름  CERTIFICATE_PRIVATE_KEY
+          #   그룹  heeheehoho_secrets   ← 이 그룹이어야 워크플로가 가져온다
+          #   Secure 체크
           if [ -z "$CERTIFICATE_PRIVATE_KEY" ]; then
-            echo "!! CERTIFICATE_PRIVATE_KEY 가 없어 새 개인키를 생성한다(인증서도 새로 발급됨)"
-            openssl genrsa -out /tmp/cert_key.pem 2048
-            CERT_KEY="@file:/tmp/cert_key.pem"
-          else
-            CERT_KEY="@env:CERTIFICATE_PRIVATE_KEY"
+            echo "=============================================================="
+            echo "!! CERTIFICATE_PRIVATE_KEY 가 비어 있다."
+            echo "   Codemagic → Environment variables 에서 값을 넣고,"
+            echo "   Variable group 을 'heeheehoho_secrets' 로 골랐는지 확인할 것."
+            echo "   (그룹이 다르면 이 워크플로에 주입되지 않는다)"
+            echo "=============================================================="
+            exit 1
           fi
+          # 키가 실제로 도착했는지 로그로 확인한다(값은 찍지 않고 지문만).
+          printf '%s' "$CERTIFICATE_PRIVATE_KEY" > /tmp/cert_key.pem
+          echo "── 받은 개인키 ──"
+          echo "  줄 수: $(wc -l < /tmp/cert_key.pem)"
+          openssl rsa -in /tmp/cert_key.pem -check -noout \
+            || { echo "!! 개인키 형식이 깨졌다(붙여넣기 확인)"; exit 1; }
+          echo -n "  공개키 지문: "
+          openssl rsa -in /tmp/cert_key.pem -pubout 2>/dev/null | openssl sha256
+          CERT_KEY="@file:/tmp/cert_key.pem"
 
           # --create: 배포 인증서·번들 ID·프로비저닝 프로파일이 없으면 만든다.
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
