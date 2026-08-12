@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../onboarding/data/nickname_service.dart' show firestoreProvider;
+import '../../pet/application/pet_providers.dart';
 import '../domain/community_models.dart';
 import 'community_sample.dart';
 
@@ -64,6 +65,21 @@ class CommunityRepository {
       'shares': 0,
       'createdAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  /// 내가 쓴 게시물을 지운다. 사진(Storage)까지 같이 지워야 용량이 남지 않는다.
+  ///
+  /// 사진 삭제가 실패해도(이미 지워졌거나 권한 문제) 게시물은 지운다 —
+  /// 피드에서 사라지는 게 먼저다.
+  Future<void> deletePost(String postId) async {
+    final db = _db;
+    if (db == null) throw StateError('네트워크가 필요해요');
+    try {
+      await _storage?.ref('community/posts/$postId.jpg').delete();
+    } catch (_) {
+      // 사진이 없거나 지울 수 없어도 계속 진행한다.
+    }
+    await db.collection(_postsCol).doc(postId).delete();
   }
 
   /// 최신순 게시물 실시간 스트림. Firestore가 없으면 빈 목록.
@@ -153,8 +169,22 @@ class MyAvatarController extends Notifier<String?> {
 final myAvatarProvider =
     NotifierProvider<MyAvatarController, String?>(MyAvatarController.new);
 
-/// "나" 이웃 정보(샘플 기본값 + 실제 프로필 사진 + 실제 펫 이름).
+/// "나" 이웃 정보(샘플 기본값 + 실제 프로필 사진 + 온보딩에서 정한 닉네임·펫 이름).
+///
+/// [Neighbor.owner]가 곧 내 닉네임이고, 게시물의 `ownerName`과 맞춰 보아
+/// 내가 쓴 글인지 판별한다(닉네임은 중복 예약이 안 되므로 서로 겹치지 않는다).
 final meProvider = Provider<Neighbor>((ref) {
   final url = ref.watch(myAvatarProvider);
-  return CommunitySample.me.copyWith(avatarUrl: url);
+  final pet = ref.watch(petProvider);
+  return CommunitySample.me.copyWith(
+    avatarUrl: url,
+    owner: (pet?.ownerNickname.isNotEmpty ?? false) ? pet!.ownerNickname : null,
+    petName: (pet?.name.isNotEmpty ?? false) ? pet!.name : null,
+  );
+});
+
+/// 지금 내 닉네임. 아직 정하지 않았으면 null(그때는 삭제 버튼도 안 띄운다).
+final myNicknameProvider = Provider<String?>((ref) {
+  final n = ref.watch(petProvider)?.ownerNickname ?? '';
+  return n.isEmpty ? null : n;
 });

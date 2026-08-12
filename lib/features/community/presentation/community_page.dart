@@ -491,12 +491,16 @@ class _TwoToneGauge extends StatelessWidget {
 
 /// 피드의 게시글 카드. 탭하면 상세로, 이름/아바타 탭하면 프로필로.
 /// 카드 테두리 대신 아래쪽 구분선(1px #F0E8DE)으로 글을 나눈다.
-class _PostCard extends StatelessWidget {
+class _PostCard extends ConsumerWidget {
   const _PostCard({required this.post});
   final Post post;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 내 닉네임과 작성자가 같으면 내 글 → 삭제 버튼을 띄운다.
+    final myNick = ref.watch(myNicknameProvider);
+    final isMine = myNick != null && post.author.owner == myNick;
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => context.push('/community/post', extra: post),
@@ -509,10 +513,26 @@ class _PostCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _AuthorRow(
-              author: post.author,
-              place: post.place ?? post.author.location,
-              timeAgo: post.timeAgo,
+            Row(
+              children: [
+                Expanded(
+                  child: _AuthorRow(
+                    author: post.author,
+                    place: post.place ?? post.author.location,
+                    timeAgo: post.timeAgo,
+                  ),
+                ),
+                if (isMine)
+                  GestureDetector(
+                    onTap: () => _confirmDelete(context, ref, post),
+                    behavior: HitTestBehavior.opaque,
+                    child: const Padding(
+                      padding: EdgeInsets.only(left: 8),
+                      child: Icon(Icons.more_horiz,
+                          size: 20, color: AppColors.subtle),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 12),
             Text(
@@ -539,6 +559,71 @@ class _PostCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// 내 글 삭제: 시트에서 고르고 한 번 더 확인한 뒤 지운다.
+/// 사진(Storage)까지 함께 지워지며 되돌릴 수 없다.
+Future<void> _confirmDelete(
+    BuildContext context, WidgetRef ref, Post post) async {
+  final pick = await showModalBottomSheet<bool>(
+    context: context,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (c) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.delete_outline, color: AppColors.coral),
+            title: Text('게시물 삭제',
+                style: AppText.body(
+                    size: 15,
+                    weight: FontWeight.w700,
+                    color: AppColors.coral)),
+            onTap: () => Navigator.of(c).pop(true),
+          ),
+          ListTile(
+            leading: const Icon(Icons.close, color: AppColors.subtle),
+            title: Text('취소', style: AppText.body(size: 15)),
+            onTap: () => Navigator.of(c).pop(false),
+          ),
+        ],
+      ),
+    ),
+  );
+  if (pick != true || !context.mounted) return;
+
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (c) => AlertDialog(
+      backgroundColor: Colors.white,
+      title: Text('게시물을 삭제할까요?',
+          style: AppText.body(size: 16, weight: FontWeight.w800)),
+      content: Text('사진도 함께 지워지고 되돌릴 수 없어요.',
+          style: AppText.body(size: 13, color: AppColors.subtle)),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(c).pop(false),
+          child: Text('취소', style: AppText.body(size: 14)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(c).pop(true),
+          child: Text('삭제',
+              style: AppText.body(size: 14, color: AppColors.coral)),
+        ),
+      ],
+    ),
+  );
+  if (ok != true || !context.mounted) return;
+
+  try {
+    await ref.read(communityRepositoryProvider).deletePost(post.id);
+    if (context.mounted) _snack(context, '게시물을 삭제했어요');
+  } catch (_) {
+    if (context.mounted) _snack(context, '삭제하지 못했어요. 잠시 후 다시 시도해주세요');
   }
 }
 

@@ -66,10 +66,11 @@ class Neighbor {
   final int totalLikes;
   final bool isMe;
 
-  Neighbor copyWith({String? avatarUrl}) => Neighbor(
+  Neighbor copyWith({String? avatarUrl, String? owner, String? petName}) =>
+      Neighbor(
     id: id,
-    owner: owner,
-    petName: petName,
+    owner: owner ?? this.owner,
+    petName: petName ?? this.petName,
     breed: breed,
     emoji: emoji,
     avatarColor: avatarColor,
