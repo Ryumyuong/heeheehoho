@@ -1,10 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// 닉네임(펫 이름) 중복 검사·예약을 담당한다.
+/// 주인(사람) 닉네임의 중복 검사·예약을 담당한다.
 ///
-/// Firestore `nicknames` 컬렉션에 소문자로 정규화한 이름을 문서 ID로 저장한다.
-/// 문서가 있으면 이미 사용 중, 없으면 사용 가능.
+/// **강아지 이름은 여기 오지 않는다** — 같은 이름의 강아지는 흔하므로 중복을
+/// 허용한다. 커뮤니티에서 나를 가리키는 주인 닉네임만 겹치면 안 된다.
+///
+/// Firestore `owner_nicknames` 컬렉션에 소문자로 정규화한 이름을 문서 ID로
+/// 저장한다. 문서가 있으면 이미 사용 중, 없으면 사용 가능.
+///
+/// 예전 버전은 **강아지 이름**을 `nicknames` 컬렉션에 예약했다. 그쪽에는 이미
+/// 출시본 사용자들의 강아지 이름이 쌓여 있어서, 그대로 쓰면 "뭉치" 같은 흔한
+/// 강아지 이름을 사람 닉네임으로 못 쓰게 된다. 그래서 컬렉션을 분리했다.
+/// (옛 `nicknames`는 이제 아무도 읽지 않으므로 콘솔에서 지워도 된다.)
 ///
 /// Firebase 초기화가 안 됐거나 네트워크가 없으면 [available]이 false가 되고,
 /// 그때는 중복 검사를 건너뛴다(온보딩이 막히지 않게).
@@ -13,7 +21,7 @@ class NicknameService {
 
   final FirebaseFirestore? _db;
 
-  static const _collection = 'nicknames';
+  static const _collection = 'owner_nicknames';
 
   bool get available => _db != null;
 
