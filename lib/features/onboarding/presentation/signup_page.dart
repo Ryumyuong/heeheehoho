@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/config/app_links.dart';
 import '../../../core/config/feature_flags.dart';
 import '../../../core/theme/pixel_theme.dart';
 import '../../../shared/widgets/app_buttons.dart';
+import '../../legal/presentation/privacy_policy_dialog.dart';
 import '../../pet/application/pet_providers.dart';
 import '../../pet/domain/pet.dart';
 import '../../pet/presentation/widgets/parts_dog.dart';
@@ -107,7 +107,7 @@ class SignupPage extends ConsumerWidget {
                 ),
               const SizedBox(height: 16),
               TextButton(
-                onPressed: () => openExternal(context, AppLinks.privacyPolicy),
+                onPressed: () => showPrivacyPolicy(context),
                 child: Text('개인정보처리방침',
                     style: AppText.body(size: 12, color: AppColors.subtle)
                         .copyWith(decoration: TextDecoration.underline)),
