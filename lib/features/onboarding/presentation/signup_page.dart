@@ -64,6 +64,19 @@ class SignupPage extends ConsumerWidget {
               const Spacer(),
               // 실제 인증이 붙기 전까지 소셜 버튼은 감춘다([kSocialLoginEnabled]).
               if (kSocialLoginEnabled) ...[
+                // Sign in with Apple. 애플은 다른 소셜 로그인을 제공하면 이것도
+                // **함께** 넣어야 심사를 통과시킨다(App Store Review 4.8).
+                SocialButton(
+                  label: 'Apple로 시작하기',
+                  background: Colors.black,
+                  textColor: Colors.white,
+                  badge: const Icon(Icons.apple, color: Colors.white, size: 24),
+                  onPressed: () {
+                    ref.read(isGuestProvider.notifier).setGuest(false);
+                    context.go('/home');
+                  },
+                ),
+                const SizedBox(height: 12),
                 SocialButton(
                   label: '구글로 시작하기',
                   background: Colors.white,

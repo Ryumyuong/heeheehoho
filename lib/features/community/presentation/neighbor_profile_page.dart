@@ -6,7 +6,6 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/pixel_theme.dart';
 import '../../../shared/widgets/design_scale.dart';
 import '../data/community_repository.dart';
-import '../data/community_sample.dart';
 import '../domain/community_models.dart';
 import 'widgets/community_bits.dart';
 
@@ -72,7 +71,8 @@ class _NeighborProfilePageState extends ConsumerState<NeighborProfilePage> {
     final n = widget.neighbor.isMe
         ? widget.neighbor.copyWith(avatarUrl: ref.watch(myAvatarProvider))
         : widget.neighbor;
-    final posts = CommunitySample.postsBy(n);
+    // 이 사람이 실제로 올린 게시물만(샘플 없음).
+    final posts = postsByOwner(ref, n.owner);
     final topPad = MediaQuery.of(context).padding.top;
 
     return Scaffold(

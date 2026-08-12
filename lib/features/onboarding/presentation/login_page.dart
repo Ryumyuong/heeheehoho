@@ -80,6 +80,18 @@ class LoginPage extends ConsumerWidget {
       children: [
         // 실제 인증이 붙기 전까지 소셜 버튼은 감춘다([kSocialLoginEnabled]).
         if (kSocialLoginEnabled) ...[
+          // Sign in with Apple. 애플은 다른 소셜 로그인을 제공하면 이것도
+          // **함께** 넣어야 심사를 통과시킨다(App Store Review 4.8). 그래서
+          // 지금은 다른 버튼들과 같은 스위치로 함께 감춰둔다.
+          SocialButton(
+            label: 'Apple로 시작하기',
+            background: Colors.black,
+            textColor: Colors.white,
+            radius: _buttonRadius,
+            badge: const Icon(Icons.apple, color: Colors.white, size: 24),
+            onPressed: () => _start(context, ref, guest: false),
+          ),
+          const SizedBox(height: 12),
           SocialButton(
             label: '구글로 시작하기',
             background: Colors.white,

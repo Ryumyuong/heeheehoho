@@ -761,18 +761,18 @@ class _SpeechBubble extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AppColors.line),
           ),
           child: Text(
             text,
-            style: AppText.body(size: 13, weight: FontWeight.w600),
+            style: AppText.body(size: 17, weight: FontWeight.w600),
           ),
         ),
-        CustomPaint(size: const Size(14, 8), painter: _TailPainter()),
+        CustomPaint(size: const Size(18, 10), painter: _TailPainter()),
       ],
     );
   }

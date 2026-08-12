@@ -59,6 +59,21 @@ service cloud.firestore {
                     && request.resource.data.shares is int;
       allow update: if false;
       allow delete: if true;
+
+      // 댓글 (community_posts/{postId}/comments/{commentId})
+      //  - read: 상세 화면에서 실시간 구독
+      //  - create: 글자와 작성 시각만
+      //  - delete: 본인 댓글 삭제용 (게시물과 같은 한계 — 로그인이 없어
+      //    서버가 요청자를 확인하지 못한다. 익명 로그인을 붙이면 조일 것)
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if request.resource.data.text is string
+                      && request.resource.data.text.size() >= 1
+                      && request.resource.data.text.size() <= 500
+                      && request.resource.data.createdAt is timestamp;
+        allow update: if false;
+        allow delete: if true;
+      }
     }
 
     // (미니게임 랭킹은 제거됨 — games/{gameId}/scores 규칙도 함께 삭제해

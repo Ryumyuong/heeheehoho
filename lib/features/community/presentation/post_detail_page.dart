@@ -1,26 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/pixel_theme.dart';
 import '../../../shared/widgets/design_scale.dart';
+import '../data/community_repository.dart';
 import '../domain/community_models.dart';
 import 'widgets/community_bits.dart';
 
 double _hPad(BuildContext context) => DesignScale.scaled(context, 20);
 
 /// 게시물 상세: 작성자 + 사진 + 본문 + 댓글 목록 + 댓글 입력.
-class PostDetailPage extends StatefulWidget {
+class PostDetailPage extends ConsumerStatefulWidget {
   const PostDetailPage({super.key, required this.post});
   final Post post;
 
   @override
-  State<PostDetailPage> createState() => _PostDetailPageState();
+  ConsumerState<PostDetailPage> createState() => _PostDetailPageState();
 }
 
-class _PostDetailPageState extends State<PostDetailPage> {
+class _PostDetailPageState extends ConsumerState<PostDetailPage> {
   final _input = TextEditingController();
-  // 화면 안에서만 늘어나는 로컬 댓글(서버 없음).
-  late final List<Comment> _comments = [...widget.post.comments];
+  bool _sending = false;
 
   @override
   void dispose() {
@@ -28,31 +29,75 @@ class _PostDetailPageState extends State<PostDetailPage> {
     super.dispose();
   }
 
-  void _send() {
+  /// 댓글을 Firestore 에 저장한다. 목록은 구독이 갱신해 주므로 여기서
+  /// 로컬 목록을 만지지 않는다.
+  Future<void> _send() async {
     final text = _input.text.trim();
-    if (text.isEmpty) return;
-    setState(() {
-      _comments.add(Comment(author: _meAsAuthor, timeAgo: '방금', text: text));
-      _input.clear();
-    });
+    if (text.isEmpty || _sending) return;
+    setState(() => _sending = true);
     FocusScope.of(context).unfocus();
+    try {
+      await ref.read(communityRepositoryProvider).addComment(
+            postId: widget.post.id,
+            author: ref.read(meProvider),
+            text: text,
+          );
+      _input.clear();
+    } catch (_) {
+      if (mounted) _snack('댓글을 남기지 못했어요');
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
   }
 
-  // 댓글 작성자를 게시글 작성자와 같은 톤의 아바타로 임시 표현.
-  Neighbor get _meAsAuthor => const Neighbor(
-    id: 'me',
-    owner: '뭉치맘',
-    petName: '뭉치',
-    breed: '포메라니안',
-    emoji: '🐶',
-    avatarColor: Color(0xFFFFE0B2),
-    location: '부산 해운대구',
-  );
+  Future<void> _deleteComment(Comment c) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dc) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: Text('댓글을 삭제할까요?',
+            style: AppText.body(size: 16, weight: FontWeight.w800)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dc).pop(false),
+            child: Text('취소', style: AppText.body(size: 14)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dc).pop(true),
+            child: Text('삭제',
+                style: AppText.body(size: 14, color: AppColors.coral)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ref
+          .read(communityRepositoryProvider)
+          .deleteComment(widget.post.id, c.id);
+    } catch (_) {
+      if (mounted) _snack('삭제하지 못했어요');
+    }
+  }
+
+  void _snack(String msg) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(msg, style: AppText.body(size: 13, color: Colors.white)),
+        backgroundColor: AppColors.ink,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ));
+  }
 
   @override
   Widget build(BuildContext context) {
     final post = widget.post;
     final topPad = MediaQuery.of(context).padding.top;
+    final comments =
+        ref.watch(commentsProvider(post.id)).asData?.value ?? const <Comment>[];
+    final myNick = ref.watch(myNicknameProvider);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -120,7 +165,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                       const SizedBox(height: 14),
                       PostStatsRow(
                         likes: post.likes,
-                        comments: _comments.length,
+                        comments: comments.length,
                         shares: post.shares,
                         onShare: () {
                           ScaffoldMessenger.of(context)
@@ -149,7 +194,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '댓글 ${_comments.length}',
+                        '댓글 ${comments.length}',
                         style: AppText.body(
                           size: 18,
                           weight: FontWeight.w800,
@@ -157,9 +202,26 @@ class _PostDetailPageState extends State<PostDetailPage> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      for (int i = 0; i < _comments.length; i++) ...[
-                        _CommentRow(comment: _comments[i]),
-                        if (i != _comments.length - 1) const SizedBox(height: 18),
+                      if (comments.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Text(
+                            '첫 댓글을 남겨보세요!',
+                            style: AppText.body(
+                                size: 13, color: AppColors.subtle),
+                          ),
+                        ),
+                      for (int i = 0; i < comments.length; i++) ...[
+                        _CommentRow(
+                          comment: comments[i],
+                          // 내 닉네임과 같은 댓글에만 삭제를 띄운다.
+                          onDelete: (myNick != null &&
+                                  comments[i].author.owner == myNick &&
+                                  comments[i].id.isNotEmpty)
+                              ? () => _deleteComment(comments[i])
+                              : null,
+                        ),
+                        if (i != comments.length - 1) const SizedBox(height: 18),
                       ],
                     ],
                   ),
@@ -235,8 +297,11 @@ class _AuthorRow extends StatelessWidget {
 }
 
 class _CommentRow extends StatelessWidget {
-  const _CommentRow({required this.comment});
+  const _CommentRow({required this.comment, this.onDelete});
   final Comment comment;
+
+  /// 내 댓글일 때만 채워진다. 있으면 우측에 삭제 버튼이 붙는다.
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -264,6 +329,21 @@ class _CommentRow extends StatelessWidget {
                     comment.timeAgo,
                     style: AppText.body(size: 12, color: const Color(0xFF888888)),
                   ),
+                  if (onDelete != null) ...[
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: onDelete,
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: Text(
+                          '삭제',
+                          style: AppText.body(
+                              size: 12, color: const Color(0xFF888888)),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 5),

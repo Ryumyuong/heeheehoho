@@ -197,9 +197,8 @@ class _FeedTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Firestore 실시간 게시물(최신순) + 아래로 샘플 게시물.
-    final live = ref.watch(communityPostsProvider).asData?.value ?? const [];
-    final posts = [...live, ...CommunitySample.posts];
+    // 실제로 등록된 게시물만 보여준다(샘플 없음).
+    final posts = ref.watch(communityPostsProvider).asData?.value ?? const [];
     // 맨 위에서 아래로 당기면 구독을 다시 걸어 목록을 새로 받는다.
     // 실시간 스트림이라 보통은 저절로 갱신되지만, 연결이 끊겼다 붙거나
     // 화면을 오래 열어둔 뒤에는 당겨서 확실히 되살릴 수 있어야 한다.
@@ -221,7 +220,10 @@ class _FeedTab extends ConsumerWidget {
             child: _BalanceGameCard(game: CommunitySample.balanceGame),
           ),
           const SizedBox(height: 16),
-          for (final post in posts) _PostCard(post: post),
+          if (posts.isEmpty)
+            const _EmptyNotice('아직 올라온 소식이 없어요\n첫 글을 남겨보세요!')
+          else
+            for (final post in posts) _PostCard(post: post),
         ],
       ),
     );
@@ -641,6 +643,24 @@ Future<void> _confirmDelete(
   }
 }
 
+/// 목록이 비었을 때의 안내 문구.
+class _EmptyNotice extends StatelessWidget {
+  const _EmptyNotice(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 36),
+        child: Center(
+          child: Text(
+            text,
+            textAlign: TextAlign.center,
+            style: AppText.body(size: 13, color: AppColors.subtle, height: 1.6),
+          ),
+        ),
+      );
+}
+
 void _snack(BuildContext context, String msg) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
@@ -704,7 +724,8 @@ class _NeighborTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final neighbors = CommunitySample.neighbors;
+    // 실제로 글을 올린 사람들만(샘플 없음).
+    final neighbors = ref.watch(neighborsProvider);
     return ListView(
       padding: EdgeInsets.fromLTRB(_hPad(context), 8, _hPad(context), 24),
       children: [
@@ -733,11 +754,15 @@ class _NeighborTab extends ConsumerWidget {
                   ),
                 ),
               ),
-              for (int i = 0; i < neighbors.length; i++) ...[
-                if (i != 0)
-                  const Divider(height: 1, thickness: 1, color: Color(0xFFF5F0EA)),
-                _NeighborRow(neighbor: neighbors[i]),
-              ],
+              if (neighbors.isEmpty)
+                const _EmptyNotice('아직 이웃이 없어요\n커뮤니티에 글을 올린 사람이 여기 모여요')
+              else
+                for (int i = 0; i < neighbors.length; i++) ...[
+                  if (i != 0)
+                    const Divider(
+                        height: 1, thickness: 1, color: Color(0xFFF5F0EA)),
+                  _NeighborRow(neighbor: neighbors[i]),
+                ],
             ],
           ),
         ),
@@ -792,14 +817,16 @@ class _NicknameSearchButton extends StatelessWidget {
 }
 
 /// 닉네임 검색 모달. 검색 결과 줄은 이웃 목록 줄과 동일한 모양.
-class _NicknameSearchDialog extends StatefulWidget {
+class _NicknameSearchDialog extends ConsumerStatefulWidget {
   const _NicknameSearchDialog();
 
   @override
-  State<_NicknameSearchDialog> createState() => _NicknameSearchDialogState();
+  ConsumerState<_NicknameSearchDialog> createState() =>
+      _NicknameSearchDialogState();
 }
 
-class _NicknameSearchDialogState extends State<_NicknameSearchDialog> {
+class _NicknameSearchDialogState
+    extends ConsumerState<_NicknameSearchDialog> {
   final _ctrl = TextEditingController();
   List<Neighbor>? _results; // null = 아직 검색 전.
 
@@ -818,7 +845,8 @@ class _NicknameSearchDialogState extends State<_NicknameSearchDialog> {
     }
     final lower = q.toLowerCase();
     setState(() {
-      _results = CommunitySample.neighbors
+      _results = ref
+          .read(neighborsProvider)
           .where((n) => n.owner.toLowerCase().contains(lower))
           .toList();
     });

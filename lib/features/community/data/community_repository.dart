@@ -82,6 +82,72 @@ class CommunityRepository {
     await db.collection(_postsCol).doc(postId).delete();
   }
 
+  // ── 댓글 ──────────────────────────────────────────────────────
+  // 게시물 문서 아래 `comments` 하위 컬렉션에 오래된 순으로 쌓는다.
+
+  /// [postId]의 댓글 실시간 스트림(오래된 순). Firestore가 없으면 빈 목록.
+  Stream<List<Comment>> watchComments(String postId) {
+    final db = _db;
+    if (db == null) return Stream.value(const []);
+    return db
+        .collection(_postsCol)
+        .doc(postId)
+        .collection('comments')
+        .orderBy('createdAt')
+        .snapshots()
+        .map((snap) => snap.docs.map(_commentFromDoc).toList());
+  }
+
+  Future<void> addComment({
+    required String postId,
+    required Neighbor author,
+    required String text,
+  }) async {
+    final db = _db;
+    if (db == null) throw StateError('네트워크가 필요해요');
+    await db.collection(_postsCol).doc(postId).collection('comments').add({
+      'ownerName': author.owner,
+      'petName': author.petName,
+      'emoji': author.emoji,
+      'avatarColor': author.avatarColor.toARGB32(),
+      'avatarUrl': author.avatarUrl,
+      'text': text,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> deleteComment(String postId, String commentId) async {
+    final db = _db;
+    if (db == null) throw StateError('네트워크가 필요해요');
+    await db
+        .collection(_postsCol)
+        .doc(postId)
+        .collection('comments')
+        .doc(commentId)
+        .delete();
+  }
+
+  Comment _commentFromDoc(QueryDocumentSnapshot<Map<String, dynamic>> d) {
+    final m = d.data();
+    final ts = (m['createdAt'] as Timestamp?)?.toDate();
+    final owner = (m['ownerName'] as String?) ?? '이웃';
+    return Comment(
+      id: d.id,
+      author: Neighbor(
+        id: owner,
+        owner: owner,
+        petName: (m['petName'] as String?) ?? '',
+        breed: '',
+        emoji: (m['emoji'] as String?) ?? '🐾',
+        avatarColor: Color((m['avatarColor'] as num?)?.toInt() ?? 0xFFFFE0B2),
+        location: '',
+        avatarUrl: m['avatarUrl'] as String?,
+      ),
+      timeAgo: _timeAgo(ts),
+      text: (m['text'] as String?) ?? '',
+    );
+  }
+
   /// 최신순 게시물 실시간 스트림. Firestore가 없으면 빈 목록.
   Stream<List<Post>> watchPosts() {
     final db = _db;
@@ -182,6 +248,34 @@ final meProvider = Provider<Neighbor>((ref) {
     petName: (pet?.name.isNotEmpty ?? false) ? pet!.name : null,
   );
 });
+
+/// 게시물별 댓글 실시간 목록.
+final commentsProvider =
+    StreamProvider.family<List<Comment>, String>((ref, postId) {
+  return ref.watch(communityRepositoryProvider).watchComments(postId);
+});
+
+/// 실제 이웃 목록 — 커뮤니티에 글을 올린 사람들(나 제외, 중복 제거).
+///
+/// 팔로우 같은 관계 데이터가 아직 없어서, 앱에서 실제로 만날 수 있는 "이웃"은
+/// 게시물 작성자가 전부다. 샘플 이웃을 섞으면 없는 사람이 있는 것처럼 보인다.
+final neighborsProvider = Provider<List<Neighbor>>((ref) {
+  final posts = ref.watch(communityPostsProvider).asData?.value ?? const [];
+  final me = ref.watch(myNicknameProvider);
+  final byOwner = <String, Neighbor>{};
+  for (final p in posts) {
+    final owner = p.author.owner;
+    if (owner.isEmpty || owner == me) continue;
+    byOwner.putIfAbsent(owner, () => p.author);
+  }
+  return byOwner.values.toList();
+});
+
+/// [owner] 닉네임이 쓴 실제 게시물들.
+List<Post> postsByOwner(WidgetRef ref, String owner) {
+  final posts = ref.watch(communityPostsProvider).asData?.value ?? const [];
+  return posts.where((p) => p.author.owner == owner).toList();
+}
 
 /// 지금 내 닉네임. 아직 정하지 않았으면 null(그때는 삭제 버튼도 안 띄운다).
 final myNicknameProvider = Provider<String?>((ref) {

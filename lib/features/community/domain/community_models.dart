@@ -124,11 +124,14 @@ class Post {
 /// 댓글.
 class Comment {
   const Comment({
+    this.id = '',
     required this.author,
     required this.timeAgo,
     required this.text,
   });
 
+  /// Firestore 문서 ID. 삭제할 때 쓴다(샘플·임시 댓글은 빈 문자열).
+  final String id;
   final Neighbor author;
   final String timeAgo;
   final String text;
