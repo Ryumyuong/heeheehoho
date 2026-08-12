@@ -653,10 +653,16 @@ class _WalkingBody extends ConsumerWidget {
                   alignment: Alignment.bottomCenter,
                   children: [
                     // 먼지가 먼저 그려져야 강아지 뒤로 간다.
+                    // 뒷발(스프라이트 가로 0.25~0.30 지점) 바로 뒤에서 피어나
+                    // 왼쪽으로 흩날린다. 강아지 크기가 화면에 따라 달라지므로
+                    // 고정 px이 아니라 _dogBox 비율로 잡는다.
                     Positioned(
-                      right: 128,
-                      bottom: 4,
-                      child: RunDust(speed: session.pace),
+                      right: _dogBox(context) * 0.75,
+                      bottom: _dogBox(context) * 0.10,
+                      child: RunDust(
+                        speed: session.pace,
+                        puffWidth: _dogBox(context) * 0.42,
+                      ),
                     ),
                     // 느릴 땐 홈과 같은 걷기 모션(커스텀 외형·코스튬 그대로),
                     // 빨라지면 달리기 전용 스프라이트(아이템 착용)로 바뀐다.

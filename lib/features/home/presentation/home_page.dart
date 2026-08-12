@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/config/feature_flags.dart';
 import '../../../core/theme/pixel_theme.dart';
 import '../../pet/application/pet_providers.dart';
+import '../../pet/domain/care_lines.dart';
 import '../../pet/domain/dog_appearance.dart';
 import '../../pet/domain/pet.dart';
 import '../../pet/presentation/widgets/dog_with_wearables.dart';
@@ -27,6 +30,20 @@ class _HomePageState extends ConsumerState<HomePage>
     vsync: this,
     duration: const Duration(seconds: 18),
   );
+
+  /// 돌보기(밥·잠·놀기) 직후 말풍선에 띄우는 한마디. 잠시 뒤 기본 인사로 돌아간다.
+  String? _careLine;
+  Timer? _careTimer;
+
+  /// 돌보기를 하고 그에 맞는 말을 띄운다.
+  void _care(CareAction action, Future<void> Function() run) {
+    run();
+    _careTimer?.cancel();
+    setState(() => _careLine = CareLines.pick(action));
+    _careTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _careLine = null);
+    });
+  }
 
   bool _walking = false;
   bool _itemOpen = false;
@@ -79,6 +96,7 @@ class _HomePageState extends ConsumerState<HomePage>
 
   @override
   void dispose() {
+    _careTimer?.cancel();
     _walk.dispose();
     super.dispose();
   }
@@ -227,7 +245,9 @@ class _HomePageState extends ConsumerState<HomePage>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (!_itemOpen && _pendingItem == null)
-                        _SpeechBubble(_walking ? '같이 산책 가자멍!' : '보고싶었다멍!'),
+                        // 돌보기 직후에는 그 한마디를, 평소엔 기본 인사를.
+                        _SpeechBubble(_careLine ??
+                            (_walking ? '같이 산책 가자멍!' : '보고싶었다멍!')),
                       GestureDetector(
                         onTap: _toggleWalk,
                         // 726:220 비율에 맞춰 강아지+웨어러블을 통째로 균일 스케일.
@@ -328,9 +348,12 @@ class _HomePageState extends ConsumerState<HomePage>
             top: topPad + 140,
             right: 0,
             child: _ActionButtons(
-              onFeed: () => ref.read(petProvider.notifier).feed(),
-              onSleep: () => ref.read(petProvider.notifier).sleep(),
-              onPlay: () => ref.read(petProvider.notifier).play(),
+              onFeed: () =>
+                  _care(CareAction.feed, ref.read(petProvider.notifier).feed),
+              onSleep: () =>
+                  _care(CareAction.sleep, ref.read(petProvider.notifier).sleep),
+              onPlay: () =>
+                  _care(CareAction.play, ref.read(petProvider.notifier).play),
             ),
           ),
 

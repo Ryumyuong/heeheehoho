@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -117,7 +118,7 @@ class ChargePage extends ConsumerWidget {
                 if (!iap.available) ...[
                   const SizedBox(height: 8),
                   Text(
-                    '결제는 Play 스토어에서 설치한 앱에서만 동작해요. '
+                    '결제는 $_storeName에서 설치한 앱에서만 동작해요. '
                     '(내부 테스트 포함)',
                     style: AppText.body(size: 12, color: AppColors.subtle),
                   ),
@@ -125,7 +126,7 @@ class ChargePage extends ConsumerWidget {
                 const SizedBox(height: 24),
                 Text(
                   '· 발자국은 소모성 상품이며 환불/복구되지 않습니다.\n'
-                  '· 결제는 Google Play를 통해 진행됩니다.',
+                  '· 결제는 $_storeName를 통해 진행됩니다.',
                   style: AppText.body(
                     size: 11,
                     color: AppColors.subtle,
@@ -223,6 +224,15 @@ class _ProductRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 결제를 중개하는 스토어 이름. 애플 심사는 화면에 다른 결제 수단 이름이
+/// 보이면 리젝하므로 플랫폼에 맞는 이름만 노출한다.
+String get _storeName {
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+    return 'App Store';
+  }
+  return 'Google Play';
 }
 
 String _comma(int n) {
