@@ -262,22 +262,6 @@ final commentsProvider =
   return ref.watch(communityRepositoryProvider).watchComments(postId);
 });
 
-/// 실제 이웃 목록 — 커뮤니티에 글을 올린 사람들(나 제외, 중복 제거).
-///
-/// 팔로우 같은 관계 데이터가 아직 없어서, 앱에서 실제로 만날 수 있는 "이웃"은
-/// 게시물 작성자가 전부다. 샘플 이웃을 섞으면 없는 사람이 있는 것처럼 보인다.
-final neighborsProvider = Provider<List<Neighbor>>((ref) {
-  final posts = ref.watch(communityPostsProvider).asData?.value ?? const [];
-  final me = ref.watch(myNicknameProvider);
-  final byOwner = <String, Neighbor>{};
-  for (final p in posts) {
-    final owner = p.author.owner;
-    if (owner.isEmpty || owner == me) continue;
-    byOwner.putIfAbsent(owner, () => p.author);
-  }
-  return byOwner.values.toList();
-});
-
 /// [owner] 닉네임이 쓴 실제 게시물들.
 List<Post> postsByOwner(WidgetRef ref, String owner) {
   final posts = ref.watch(communityPostsProvider).asData?.value ?? const [];
