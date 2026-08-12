@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:firebase_core/firebase_core.dart' show FirebaseException;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -79,9 +80,28 @@ class _ComposePageState extends ConsumerState<ComposePage> {
     } catch (e) {
       if (mounted) {
         setState(() => _busy = false);
-        _snack('업로드에 실패했어요. 잠시 후 다시 시도해 주세요');
+        _snack(_uploadError(e));
       }
     }
+  }
+
+  /// 실패 사유를 사용자에게 보여줄 문장으로. 원인을 못 좁히면 아무것도 못 고치니
+  /// 최소한 어디서 막혔는지는 남긴다(권한/네트워크/그 외 코드).
+  static String _uploadError(Object e) {
+    if (e is FirebaseException) {
+      switch (e.code) {
+        case 'permission-denied':
+        case 'unauthorized':
+          return '권한이 없어 올리지 못했어요 (보안 규칙 확인 필요)';
+        case 'unavailable':
+        case 'network-request-failed':
+        case 'retry-limit-exceeded':
+          return '네트워크가 불안정해요. 잠시 후 다시 시도해 주세요';
+        default:
+          return '업로드 실패 (${e.plugin}/${e.code})';
+      }
+    }
+    return '업로드에 실패했어요. 잠시 후 다시 시도해 주세요';
   }
 
   void _snack(String msg) {

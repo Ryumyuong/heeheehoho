@@ -200,16 +200,30 @@ class _FeedTab extends ConsumerWidget {
     // Firestore 실시간 게시물(최신순) + 아래로 샘플 게시물.
     final live = ref.watch(communityPostsProvider).asData?.value ?? const [];
     final posts = [...live, ...CommunitySample.posts];
-    return ListView(
-      padding: const EdgeInsets.only(top: 4, bottom: 88), // FAB 가림 방지 하단 여백
-      children: [
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: _hPad(context)),
-          child: _BalanceGameCard(game: CommunitySample.balanceGame),
-        ),
-        const SizedBox(height: 16),
-        for (final post in posts) _PostCard(post: post),
-      ],
+    // 맨 위에서 아래로 당기면 구독을 다시 걸어 목록을 새로 받는다.
+    // 실시간 스트림이라 보통은 저절로 갱신되지만, 연결이 끊겼다 붙거나
+    // 화면을 오래 열어둔 뒤에는 당겨서 확실히 되살릴 수 있어야 한다.
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: () async {
+        ref.invalidate(communityPostsProvider);
+        // 새 스냅샷이 한 번 도착할 때까지 기다려야 인디케이터가 자연스럽게 걷힌다.
+        await ref.read(communityPostsProvider.future);
+      },
+      child: ListView(
+        // 글이 적어도 당기는 동작이 먹히도록 항상 스크롤 가능하게.
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding:
+            const EdgeInsets.only(top: 4, bottom: 88), // FAB 가림 방지 하단 여백
+        children: [
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: _hPad(context)),
+            child: _BalanceGameCard(game: CommunitySample.balanceGame),
+          ),
+          const SizedBox(height: 16),
+          for (final post in posts) _PostCard(post: post),
+        ],
+      ),
     );
   }
 }
