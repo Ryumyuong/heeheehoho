@@ -24,12 +24,20 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 class _HomePageState extends ConsumerState<HomePage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   // 강아지가 걸을 때만 돌아가는 컨트롤러(배경 패럴랙스 스크롤).
   late final AnimationController _walk = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 18),
   );
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState s) {
+    // 다른 앱에 갔다 돌아왔을 때도 그동안의 변화를 반영한다.
+    if (s == AppLifecycleState.resumed) {
+      ref.read(petProvider.notifier).applyDecay();
+    }
+  }
 
   /// 돌보기(밥·잠·놀기) 직후 말풍선에 띄우는 한마디. 잠시 뒤 기본 인사로 돌아간다.
   String? _careLine;
@@ -92,10 +100,16 @@ class _HomePageState extends ConsumerState<HomePage>
     super.initState();
     // 정지 상태에서 배경이 중앙에 오도록(camX=0) 위상을 0.25로 시작.
     _walk.value = 0.25;
+    // 앱을 껐던 동안 흐른 시간만큼 상태값을 반영한다.
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => ref.read(petProvider.notifier).applyDecay(),
+    );
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _careTimer?.cancel();
     _walk.dispose();
     super.dispose();

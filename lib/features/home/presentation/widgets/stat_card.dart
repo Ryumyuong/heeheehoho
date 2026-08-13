@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/pixel_theme.dart';
 
-/// 좌상단 스탯 카드: 행복도 / 배고픔 / 피로도.
+/// 좌상단 스탯 카드: 애정도 / 포만감 / 피로도.
+///
+/// 두 번째 값은 게이지가 찰수록 배부른 상태다. 예전 라벨이 '배고픔'이라
+/// 의미가 거꾸로 읽혔다(가득 차 있는데 배고픔?) — '포만감'으로 바로잡았다.
 class StatCard extends StatelessWidget {
   const StatCard({
     super.key,
@@ -36,9 +39,9 @@ class StatCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _StatRow(icon: 'assets/icons/stat_happy.png', label: '행복도', value: happiness, color: AppColors.statHappy),
+          _StatRow(icon: 'assets/icons/stat_happy.png', label: '애정도', value: happiness, color: AppColors.statHappy),
           const SizedBox(height: 8),
-          _StatRow(icon: 'assets/icons/stat_hunger.png', label: '배고픔', value: hunger, color: AppColors.statHunger),
+          _StatRow(icon: 'assets/icons/stat_hunger.png', label: '포만감', value: hunger, color: AppColors.statHunger),
           const SizedBox(height: 8),
           _StatRow(icon: 'assets/icons/stat_fatigue.png', label: '피로도', value: fatigue, color: AppColors.statFatigue),
         ],

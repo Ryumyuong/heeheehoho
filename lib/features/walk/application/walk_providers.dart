@@ -356,6 +356,9 @@ class WalkController extends Notifier<WalkState> {
     await repo.save(log);
     await repo.clearActive();
     if (paws > 0) await ref.read(petProvider.notifier).addPaws(paws);
+    // 같이 걸었으니 애정도가 오르고, 그만큼 지치고 배가 준다.
+    // 보상 발자국과 달리 하루 상한이 없으므로 이번 산책 걸음만 넘긴다.
+    await ref.read(petProvider.notifier).applyWalkEffect(session.steps);
 
     state = state.copyWith(
       phase: WalkPhase.finished,

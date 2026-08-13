@@ -72,6 +72,7 @@ class Pet {
     this.placementScales = const {},
     this.ownedItems = const [],
     this.ownerNickname = '',
+    this.statsAt,
   });
 
   final String name;
@@ -105,6 +106,11 @@ class Pet {
   /// 스토어에서 구매해 보유한 아이템 id 목록. 홈 아이템창의 잠금 해제 기준.
   final List<String> ownedItems;
 
+  /// 상태값(애정도·포만감·피로도)을 마지막으로 계산한 시각.
+  /// 앱을 껐다 켜도 그동안 흐른 시간만큼 변화를 반영하려고 들고 있는다.
+  /// 예전 저장본에는 없어서 null이면 "지금"으로 보고 시작한다.
+  final DateTime? statsAt;
+
   /// 주인(사람)의 닉네임. 커뮤니티에서 나를 가리키는 이름이라 **중복 불가**로
   /// 온보딩에서 검사·예약한다. 강아지 이름([name])은 중복을 허용한다.
   final String ownerNickname;
@@ -123,10 +129,12 @@ class Pet {
     Map<String, double>? placementScales,
     List<String>? ownedItems,
     String? ownerNickname,
+    DateTime? statsAt,
   }) =>
       Pet(
         name: name ?? this.name,
         ownerNickname: ownerNickname ?? this.ownerNickname,
+        statsAt: statsAt ?? this.statsAt,
         gender: gender,
         birthday: birthday,
         bodyShape: bodyShape,
@@ -148,6 +156,7 @@ class Pet {
   Map<String, dynamic> toMap() => {
         'name': name,
         'ownerNickname': ownerNickname,
+        'statsAt': statsAt?.millisecondsSinceEpoch,
         'gender': gender.index,
         'birthday': birthday.millisecondsSinceEpoch,
         'bodyShape': bodyShape.index,
@@ -181,6 +190,9 @@ class Pet {
       name: m['name'] as String? ?? '몽치',
       // 닉네임이 없던 구버전 저장본은 빈 값 → 프로필에서 강아지 이름으로 대체한다.
       ownerNickname: m['ownerNickname'] as String? ?? '',
+      statsAt: (m['statsAt'] as num?) == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch((m['statsAt'] as num).toInt()),
       gender: Gender.values[(m['gender'] as num?)?.toInt() ?? 0],
       birthday: DateTime.fromMillisecondsSinceEpoch(
         (m['birthday'] as num?)?.toInt() ??
